@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/srinitude/pi-until-done/blob/main/SECURITY.md
+    about: Do NOT file public issues for security vulnerabilities — see SECURITY.md.
+  - name: Pi documentation
+    url: https://pi.dev/docs/latest/extensions
+    about: Pi extension API reference.
+  - name: pi-config operating contract
+    url: https://github.com/srinitude/pi-config
+    about: The operating contract this project adopts.

@@ -1,0 +1,14 @@
+# Default reviewers for everything in this repo.
+# Lines later in the file take precedence.
+
+* @srinitude
+
+# Critical paths — require explicit review before merge.
+/extensions/lib/structural-constraints.ts @srinitude
+/extensions/lib/strings/principles/      @srinitude
+/extensions/lib/mise.ts                   @srinitude
+/extensions/lib/ci/                       @srinitude
+/AGENTS.md                                @srinitude
+/SECURITY.md                              @srinitude
+/.github/                                 @srinitude
+/mise.toml                                @srinitude

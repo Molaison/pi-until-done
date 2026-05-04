@@ -1,0 +1,77 @@
+name: Bug report
+description: Something is broken in /until-done
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security vulnerabilities, do NOT file a public issue —
+        see [SECURITY.md](../SECURITY.md).
+  - type: input
+    id: pi-version
+    attributes:
+      label: Pi version
+      placeholder: "pi --version output"
+    validations:
+      required: true
+  - type: input
+    id: pi-until-done-version
+    attributes:
+      label: pi-until-done version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: bun-version
+    attributes:
+      label: Bun version
+      placeholder: "bun --version output"
+    validations:
+      required: true
+  - type: input
+    id: mise-version
+    attributes:
+      label: Mise version
+      placeholder: "mise --version output"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal /until-done invocation that reproduces.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Pi session JSONL excerpts (redact secrets) or .until-done/tasks.yaml content.
+      render: shell

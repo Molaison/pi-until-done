@@ -1,0 +1,52 @@
+node_modules/
+.DS_Store
+.until-done/
+*.log
+${HOME}/
+
+# Build / pack artifacts
+*.tgz
+dist/
+build/
+.cache/
+
+# Test / coverage output
+coverage/
+.nyc_output/
+*.lcov
+
+# Editor / IDE noise
+.vscode/
+.idea/
+*.swp
+*.swo
+.history/
+
+# Per-developer agent configurations — kept local, never committed.
+# pi-until-done is agent-tool agnostic; if a contributor wires up Claude
+# Code, Cursor, Continue, Windsurf, Codex, Cody, Aider, Codeium, etc.
+# locally, those configs stay in their own working tree.
+.claude/
+.cursor/
+.cursorrules
+.continue/
+.windsurf/
+.windsurfrules
+.codex/
+.cody/
+.codeium/
+.codeiumrc
+.aider*
+.aiderignore
+.copilotignore
+.github/copilot-instructions.md
+
+# Local mise overrides
+mise.local.toml
+.mise.local.toml
+.tool-versions
+
+# Environment files (always local)
+.env
+.env.*
+!.env.example

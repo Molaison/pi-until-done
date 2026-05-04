@@ -1,0 +1,90 @@
+name: CI
+
+# Matching GitHub Agentic Workflow per pi-config §0.6 + §0.7.
+# Mirrors `mise run ci` so local ↔ GitHub parity holds for the current scope.
+# Read-only by default; any write would belong to a separate guarded job.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ${{ matrix.os }} · mise run ci
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+        with:
+          version: 2026.5.0
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Trust mise.toml (non-interactive)
+        run: mise trust
+        shell: bash
+
+      - name: Install bun deps
+        run: mise run install-deps
+        shell: bash
+
+      - name: Run full CI suite
+        run: mise run ci
+        shell: bash
+
+  release-ready:
+    name: ${{ matrix.os }} · mise run release-ready
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    needs: ci
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+        with:
+          version: 2026.5.0
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Trust mise.toml (non-interactive)
+        run: mise trust
+        shell: bash
+
+      - name: Install bun deps
+        run: mise run install-deps
+        shell: bash
+
+      - name: Run release-readiness suite
+        run: mise run release-ready
+        shell: bash

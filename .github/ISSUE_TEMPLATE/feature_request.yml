@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a new behavior or capability
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the user need. "I'm trying to do X but Y is in the way."
+        Avoid pre-prescribing the solution here; that goes below.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: |
+        What would the API / UX look like? If you have a sketch or example
+        invocation, paste it.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you try or think about?
+  - type: textarea
+    id: scope-fit
+    attributes:
+      label: Scope fit
+      description: |
+        Does this preserve Pi's compose-don't-replace philosophy?
+        Does it stay within the structural constraints (≤3 / ≤30 / ≤200)?
+        Does it route through mise?
+    validations:
+      required: true
