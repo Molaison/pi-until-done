@@ -2,7 +2,10 @@ import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
-import { HARD_BUDGET_CEILING } from "../constants";
+import {
+	HARD_BUDGET_CEILING,
+	LARGE_BUDGET_CONFIRM_THRESHOLD,
+} from "../constants";
 import { initialState } from "../initial-state";
 import { persist, type Store } from "../store";
 import { DIALOGS, NOTIFY } from "../strings";
@@ -71,6 +74,17 @@ export const cmdCancel = async (
 	refreshWidget(store, ctx, true);
 };
 
+const confirmLargeBudget = async (
+	ctx: ExtensionCommandContext,
+	n: number,
+): Promise<boolean> => {
+	if (n <= LARGE_BUDGET_CONFIRM_THRESHOLD || !ctx.hasUI) return true;
+	return ctx.ui.confirm(
+		DIALOGS.largeBudgetTitle,
+		DIALOGS.largeBudgetMessage(n, LARGE_BUDGET_CONFIRM_THRESHOLD),
+	);
+};
+
 export const cmdBudget = async (
 	pi: ExtensionAPI,
 	store: Store,
@@ -82,6 +96,8 @@ export const cmdBudget = async (
 		ctx.ui.notify(NOTIFY.budgetRange(HARD_BUDGET_CEILING), "error");
 		return;
 	}
+	const okay = await confirmLargeBudget(ctx, n);
+	if (!okay) return;
 	persist(pi, store, "budget", { maxTurns: n }, `budget set to ${n}`);
 	ctx.ui.notify(NOTIFY.budgetSet(n), "info");
 	refreshStatus(store, ctx);

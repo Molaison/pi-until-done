@@ -37,11 +37,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.continue/`, `.windsurf/`, `.codex/`, `.cody/`, `.codeium/`, `.aider*`,
   Copilot instructions) added to `.gitignore` — kept local
 
+### Changed
+- `HARD_BUDGET_CEILING` raised 200 → **20000** (~333h / ~14 days at 1
+  turn/min). New `LARGE_BUDGET_CONFIRM_THRESHOLD = 500` triggers a
+  confirm dialog in `/until-done budget <n>` above that. Default
+  `maxTurns = 20` unchanged.
+
 ### Fixed
 - Windows CI failures from CRLF line endings (biome format/lint) — fixed
   via `.gitattributes`
 - Windows build failure from inline `bun --print 'import(...)'` quoting
   — moved to `tests/build-smoke.ts`
+- npm publish workflow 404 — switched runner to Node 24 (ships npm 11.x
+  natively for OIDC trusted publishing); removed `setup-node`'s
+  `registry-url` which was injecting a placeholder `NODE_AUTH_TOKEN`
+  and fighting the OIDC handshake
 
 ## [0.1.0] — 2026-05-04
 

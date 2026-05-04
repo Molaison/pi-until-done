@@ -98,11 +98,22 @@ jobs:
       - name: Local release-readiness gate (final guard)
         run: mise run release-ready
 
-      - name: Set up node + npm registry (OIDC handshake)
+      # Node 24 ships npm 11.x by default — needed for OIDC trusted
+      # publishing (≥ 11.5.1). Self-upgrading older npm hits a known
+      # MODULE_NOT_FOUND: promise-retry bug in arborist, so we just pick
+      # a node version that already has the right npm.
+      # NO registry-url — that injects a placeholder NODE_AUTH_TOKEN and
+      # fights the OIDC handshake, returning 404-not-found.
+      - name: Set up Node 24 (ships npm 11.x for OIDC trusted publishing)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
+          node-version: "24"
 
-      - name: Publish to npm with provenance
+      - name: Verify npm version supports OIDC trusted publishing
+        run: |
+          ver=$(npm --version)
+          echo "npm version: $ver"
+          node -e "const v=process.argv[1].split('.').map(Number); if(v[0]<11||(v[0]===11&&v[1]<5)){console.error('Need npm >= 11.5.1, have '+process.argv[1]); process.exit(1);}" "$ver"
+
+      - name: Publish to npm with provenance via OIDC
         run: npm publish --provenance --access public

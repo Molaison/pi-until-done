@@ -53,8 +53,10 @@ What the extension does NOT do:
   extension's `tool_call` hook compares each `bash` invocation against this
   list and triggers a `ctx.ui.confirm` dialog (with 30s timeout) before
   the command runs. On dismiss/timeout, the tool is blocked.
-- Hard ceiling: turn budget capped at 200, regardless of what the model
-  requests.
+- Hard ceiling: turn budget capped at 20000 (with a confirm dialog above
+  500), regardless of what the model requests. The orthogonal gates —
+  spin guard, clean-end nudge, CI-failure → block, user input,
+  `/until-done pause`, and compaction — are turn-independent.
 - Any tool the user has not enabled in Pi cannot be invoked by the
   extension.
 

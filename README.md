@@ -11,7 +11,8 @@ and coexisting cleanly with every other extension.
 [![types: TypeScript](https://img.shields.io/npm/types/pi-until-done.svg)](https://www.npmjs.com/package/pi-until-done)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![pi-package](https://img.shields.io/badge/pi--package-pi.dev-7c3aed)](https://pi.dev/packages)
-[![CI](https://github.com/srinitude/pi-until-done/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/srinitude/pi-until-done/actions/workflows/ci.yml)
+[![CI](https://github.com/srinitude/pi-until-done/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/srinitude/pi-until-done/actions/workflows/ci.yml?query=branch%3Amain)
+[![Publish](https://github.com/srinitude/pi-until-done/actions/workflows/publish.yml/badge.svg?event=push)](https://github.com/srinitude/pi-until-done/actions/workflows/publish.yml)
 
 > **Pi's own philosophy** (from
 > [srinitude/pi-config](https://github.com/srinitude/pi-config)): _minimal
@@ -111,7 +112,7 @@ The status line shows the live phase glyph:
 | `/until-done pause` | Halt continuation, keep state |
 | `/until-done resume` | Resume + reset budget |
 | `/until-done cancel` | Clear the goal |
-| `/until-done budget <n>` | Change turn budget (1..200) |
+| `/until-done budget <n>` | Change turn budget (1..20000; >500 prompts a confirm) |
 | `/until-done ask <question>` | Side question — does **not** preempt the loop |
 | `/until-done autopilot` | Skip the user-confirm dialog |
 | `/until-done help` | Show this list |
@@ -420,8 +421,9 @@ else in the package ecosystem.
     not collide because `/goal` and `/until-done` are different names.
 18. **Ask-before timeout (no human at terminal)** → 30s timeout on
     `confirm`; on dismiss, the tool call is blocked with `user denied`.
-19. **Hard ceiling 200 turns** → `cmdBudget` rejects values >200 even
-    if Pi tries to autopilot a runaway loop.
+19. **Hard ceiling 20000 turns** → `cmdBudget` rejects values >20000;
+    values >500 prompt a confirm dialog (the "go to lunch" threshold)
+    so users opt into the spend / wall-clock cost explicitly.
 20. **Goal cancelled mid-streaming** → state transitions to `cleared`;
     next `agent_end` short-circuits via `state.status !== "active"`
     guard.
@@ -479,7 +481,9 @@ on the active model's behalf each turn. You should know:
   still apply.
 - **No background side effects** — no daemons, no hidden state, no
   uploads, no telemetry. State is auditable in the JSONL session log.
-- **Hard turn budget** of 200 prevents runaway loops; default is 20.
+- **Hard turn budget** ceiling of 20000 with a confirm dialog above 500;
+  default is 20. Spin guard, clean-end nudge, CI failure, user input,
+  and `/until-done pause` all preempt regardless of budget.
 
 For vulnerability disclosure see [SECURITY.md](SECURITY.md).
 

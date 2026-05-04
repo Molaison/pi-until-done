@@ -1,5 +1,13 @@
 export const DEFAULT_MAX_TURNS = 20;
-export const HARD_BUDGET_CEILING = 200;
+// Hard ceiling on turn budget. Orthogonal safety gates (spin guard,
+// clean-end nudge, CI-failure → block, user input, /until-done pause,
+// compaction) make the ceiling a coarse fail-safe rather than the primary
+// guardrail — so 20000 is set high enough for multi-week autonomous
+// goals (~333h at 1 turn/min) without removing the cap.
+export const HARD_BUDGET_CEILING = 20000;
+// Above this threshold, /until-done budget shows a confirm dialog so the
+// user opts into the spend / wall-clock cost explicitly.
+export const LARGE_BUDGET_CONFIRM_THRESHOLD = 500;
 export const RESPONSE_SNIPPET_CHARS = 4000;
 export const STATE_CUSTOM_TYPE = "until-done.state";
 export const CONTINUATION_CUSTOM_TYPE = "until-done.continuation";
