@@ -1,0 +1,108 @@
+name: Publish
+
+# Publishes pi-until-done to npm via OIDC trusted publishing.
+# Trust is configured on npm side: srinitude/pi-until-done + this filename.
+# No NPM_TOKEN needed; setup-node + --provenance handle OIDC.
+#
+# Triggers:
+#   - Push of a tag matching v*  (the normal release path)
+#   - workflow_dispatch with a tag input  (re-run a failed publish)
+#
+# Gate: the publish job will not run until the CI workflow has succeeded
+# on the same SHA. The release-ready step is also re-run inside this job
+# as a last local guard before npm publish.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.1.1). Defaults to current ref."
+        required: false
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC + provenance attestation
+  actions: read # required to query other workflow runs
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  wait-for-ci:
+    name: Wait for CI to pass on this SHA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Poll CI workflow until it succeeds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -e
+          for i in $(seq 1 60); do
+            data=$(gh run list --repo "$REPO" --commit "$SHA" \
+              --workflow ci.yml --json status,conclusion --limit 1 \
+              --jq '.[0]')
+            if [ -z "$data" ] || [ "$data" = "null" ]; then
+              echo "[$i] No CI run yet for $SHA, waiting..."
+              sleep 30
+              continue
+            fi
+            status=$(echo "$data" | jq -r '.status')
+            conclusion=$(echo "$data" | jq -r '.conclusion // ""')
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "✓ CI succeeded on $SHA"
+                exit 0
+              fi
+              echo "✗ CI did not succeed on $SHA (conclusion=$conclusion)"
+              exit 1
+            fi
+            echo "[$i] CI status=$status, sleeping..."
+            sleep 30
+          done
+          echo "Timed out waiting for CI"
+          exit 1
+
+  publish:
+    name: npm publish (OIDC + provenance)
+    needs: wait-for-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+        with:
+          version: 2026.5.0
+          install: true
+          cache: true
+          experimental: true
+
+      - name: Trust mise.toml
+        run: mise trust
+
+      - name: Install bun deps
+        run: mise run install-deps
+
+      - name: Local release-readiness gate (final guard)
+        run: mise run release-ready
+
+      - name: Set up node + npm registry (OIDC handshake)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public

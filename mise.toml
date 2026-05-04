@@ -123,33 +123,37 @@ echo '✓ tree clean, on main'
 """
 
 [tasks.publish]
-description = "Publish current version to npm (no version bump)"
+description = "Re-trigger the GH publish workflow for the current tag (used to re-run a failed publish)"
 depends = ["publish:check"]
-run = "npm publish --access public"
+run = """
+tag=$(git describe --tags --exact-match 2>/dev/null) || (echo 'No tag on HEAD; nothing to re-publish.'; exit 1)
+gh workflow run publish.yml --ref "$tag" -f tag="$tag"
+echo "✓ Re-triggered publish workflow for $tag"
+"""
 
 [tasks."publish:patch"]
-description = "Bump patch version, tag, publish, push tag"
+description = "Bump patch version, tag, push — GH Actions publishes on tag push"
 depends = ["publish:check"]
 run = """
 npm version patch -m "release v%s"
-npm publish --access public
 git push --follow-tags origin main
+echo "✓ Tag pushed — GH publish workflow now running"
 """
 
 [tasks."publish:minor"]
-description = "Bump minor version, tag, publish, push tag"
+description = "Bump minor version, tag, push — GH Actions publishes on tag push"
 depends = ["publish:check"]
 run = """
 npm version minor -m "release v%s"
-npm publish --access public
 git push --follow-tags origin main
+echo "✓ Tag pushed — GH publish workflow now running"
 """
 
 [tasks."publish:major"]
-description = "Bump major version, tag, publish, push tag"
+description = "Bump major version, tag, push — GH Actions publishes on tag push"
 depends = ["publish:check"]
 run = """
 npm version major -m "release v%s"
-npm publish --access public
 git push --follow-tags origin main
+echo "✓ Tag pushed — GH publish workflow now running"
 """
