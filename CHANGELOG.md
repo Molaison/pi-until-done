@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-04
+
+### Added
+- pi-config principles injected every turn (bootstrap mandate, performance
+  mandate, capability injection + test model, definition of done, working
+  style)
+- `goalType: ticket | exploratory` and `surfaces[]` on the contract;
+  PHASE 0 brainstorm step in setup
+- `until_done_distill` tool — compiles the journey into
+  `.until-done/distilled.md` after completion
+- `/until-done ask <question>` — side question primitive that does not
+  preempt the loop
+- 18 language profiles for the runtime CI hook (Swift, C++, Kotlin, Lua,
+  Luau, Roblox, Python, Go, Rust, Ruby, Elixir, Erlang, Zig, Java, .NET,
+  TypeScript bun/pnpm/npm/yarn, Deno) — every CLI invocation routed
+  through `mise exec --`
+- `verifyCommand` auto-wrapped with `mise exec --` on `until_done_set`
+- `mise.toml` with publish tasks (`publish`, `publish:dry`,
+  `publish:patch/minor/major`)
+- `.gitattributes` forcing LF on Windows checkouts
+- `.github/workflows/ci.yml` 3-OS matrix (ubuntu/macos/windows)
+- AGENTS.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md,
+  CHANGELOG.md, LICENSE, .github/PULL_REQUEST_TEMPLATE.md, ISSUE_TEMPLATE/,
+  CODEOWNERS, FUNDING.yml
+- 48 tests covering mise routing, every package-manager profile, and
+  cross-platform path/discovery neutrality
+- Per-developer agent-tool config dirs (`.claude/`, `.cursor/`,
+  `.continue/`, `.windsurf/`, `.codex/`, `.cody/`, `.codeium/`, `.aider*`,
+  Copilot instructions) added to `.gitignore` — kept local
+
+### Fixed
+- Windows CI failures from CRLF line endings (biome format/lint) — fixed
+  via `.gitattributes`
+- Windows build failure from inline `bun --print 'import(...)'` quoting
+  — moved to `tests/build-smoke.ts`
+
 ## [0.1.0] — 2026-05-04
 
 ### Added
@@ -47,5 +83,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests in `tests/`.
 - LICENSE (MIT), SECURITY.md.
 
-[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.1
 [0.1.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.0

@@ -19,7 +19,7 @@ body:
     id: pi-until-done-version
     attributes:
       label: pi-until-done version
-      placeholder: "0.1.0"
+      placeholder: "0.1.1"
     validations:
       required: true
   - type: input
