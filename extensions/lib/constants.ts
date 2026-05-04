@@ -1,0 +1,10 @@
+export const DEFAULT_MAX_TURNS = 20;
+export const HARD_BUDGET_CEILING = 200;
+export const RESPONSE_SNIPPET_CHARS = 4000;
+export const STATE_CUSTOM_TYPE = "until-done.state";
+export const CONTINUATION_CUSTOM_TYPE = "until-done.continuation";
+export const STATUS_KEY = "until-done";
+export const WIDGET_KEY = "until-done";
+export const TICK_INTERVAL_MS = 500;
+export const ASK_BEFORE_TIMEOUT_MS = 30_000;
+export const SETUP_CONFIRM_TIMEOUT_MS = 120_000;

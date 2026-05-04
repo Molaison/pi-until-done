@@ -1,0 +1,87 @@
+# Centralized CI/CD orchestrator for pi-until-done.
+#
+# Mise is the sole CLI entry point. Every shell command — typecheck, lint,
+# format, test, build, watch, dev — runs through `mise run <task>` (defined
+# below) or `mise exec -- <binary>` (when invoking ad-hoc tools that aren't
+# wrapped as a task). Versions are pinned via `[tools]` and the mise.lock
+# lockfile so dev / CI / agent all converge.
+#
+# Common entry points:
+#   mise run check      — fast pre-commit gate (typecheck + lint + format)
+#   mise run ci         — full CI suite (everything until-done's runtime CI runs)
+#   mise watch check    — re-run the check gate on every file save
+#   mise tasks ls       — list every defined task
+#   mise tasks ls --json — machine-readable; what until-done's runtime queries
+
+[tools]
+bun = "latest"
+node = "lts"
+
+[settings]
+# Required for some experimental features (monorepo target paths, age secrets).
+# Safe default for this repo since we own the config.
+experimental = true
+# Limit per-task stdout to one line per second by default; tasks themselves
+# can override with `quiet = true` for silent passes.
+jobs = 4
+
+# ---- Verbs the runtime CI hook expects -------------------------------------
+# Names must match the CiVerb union in extensions/lib/ci/types.ts.
+
+[tasks.typecheck]
+description = "TypeScript type-check (tsc --noEmit) for every file under extensions/"
+run = "bun x tsc --noEmit"
+
+[tasks.lint]
+description = "Lint with biome (auto-installed on first run via bun x)"
+run = "bun x --bun @biomejs/biome check --reporter=summary extensions"
+
+[tasks.format]
+description = "Verify formatting (does not write changes)"
+run = "bun x --bun @biomejs/biome format --reporter=summary extensions"
+
+[tasks.format-write]
+description = "Apply formatting in-place (use locally; CI uses `format`)"
+run = "bun x --bun @biomejs/biome format --write extensions"
+
+[tasks.fmt-toml]
+description = "Format mise.toml itself (sorts keys, normalizes whitespace)"
+run = "mise fmt"
+
+[tasks.compile]
+description = "Compile-equivalent: tsc emits no output but proves every module resolves"
+run = "bun x tsc --noEmit --pretty"
+
+[tasks.test]
+description = "Run bun's test runner"
+run = "bun test --rerun-each=1"
+
+[tasks.build]
+description = "No bundling — Pi loads .ts directly. This task verifies the runtime entrypoint resolves."
+run = "bun --print 'import(\"./extensions/until-done.ts\").then(() => console.log(\"build ok\"))'"
+
+# ---- Convenience composites ------------------------------------------------
+
+[tasks.check]
+description = "Fast pre-commit gate — typecheck + lint + format in parallel"
+depends = ["typecheck", "lint", "format"]
+
+[tasks.ci]
+description = "Full CI suite (everything until-done's runtime CI runs on agent_end)"
+depends = ["typecheck", "lint", "format", "compile", "test", "build"]
+depends_post = ["fmt-toml"]
+
+[tasks.dev]
+description = "Watch mode — re-run `check` whenever a .ts file under extensions/ changes"
+run = "mise watch check"
+
+[tasks.install-deps]
+description = "Install bun dependencies (idempotent — skips when bun.lock unchanged)"
+run = "bun install"
+
+[tasks.clean]
+description = "Remove build artifacts and the runtime .until-done/ scratch directory"
+run = """
+rm -rf .until-done
+rm -rf node_modules/.cache
+"""

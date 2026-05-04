@@ -1,0 +1,52 @@
+{
+  "name": "pi-until-done",
+  "version": "0.1.0",
+  "description": "Pi extension that replicates Hermes Agent's /goal Ralph loop on top of Pi, using every Pi primitive and letting Pi self-judge done.",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "goal",
+    "goal-mode",
+    "until-done",
+    "autonomous-agent",
+    "ralph-loop",
+    "agent",
+    "hermes"
+  ],
+  "files": [
+    "extensions",
+    "skills",
+    "prompts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/until-done.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-tui": "*",
+    "@types/bun": "*",
+    "typebox": "*",
+    "typescript": "*"
+  },
+  "dependencies": {
+    "yaml": "^2.8.4"
+  }
+}
