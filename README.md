@@ -3,9 +3,17 @@
 ![pi-until-done preview](./assets/preview.png)
 
 A Pi extension that brings [Hermes Agent's `/goal`](https://hermes-agent.nousresearch.com/docs/user-guide/features/goals)
-("the Ralph loop with a judge") to Pi as `/until-done` — and goes further by
-**letting Pi itself be the judge**, using *every* Pi extension primitive,
-and coexisting cleanly with every other extension.
+("the Ralph loop with a judge") to Pi as `/until-done`. **Every
+`until_done_complete` is gated by a cross-model LLM judge by default** —
+the standard fix for Ralph-loop oscillation, where the executor talks
+itself into a premature "done." Pick a different model than the
+executor at setup time (`judgeModel: { provider, modelId }`) and the
+judge LLM has to agree before the goal transitions to `done`. If you
+genuinely have no second model available, opt back into same-model
+self-judge with `sameModelJudge: true` — `until_done_set` refuses
+without one of those two. Uses *every* Pi extension primitive that the
+goal-pursuit loop needs, and coexists cleanly with every other
+extension.
 
 [![npm version](https://img.shields.io/npm/v/pi-until-done.svg?logo=npm&logoColor=white)](https://www.npmjs.com/package/pi-until-done)
 [![types: TypeScript](https://img.shields.io/npm/types/pi-until-done.svg)](https://www.npmjs.com/package/pi-until-done)
@@ -18,8 +26,11 @@ and coexisting cleanly with every other extension.
 > [srinitude/pi-config](https://github.com/srinitude/pi-config)): _minimal
 > core, extensible edges, deterministic, inspectable, preserve developer
 > agency._ This extension hews to that line. It composes; it does not
-> override. State lives in session entries. The active model is the
-> judge. No system-prompt replacement, no side-database, no hidden state.
+> override. State lives in session entries. Every completion is judged
+> by default — cross-model (different model than the executor) is
+> required unless the contract explicitly opts into same-model
+> self-judge. No system-prompt replacement, no side-database, no hidden
+> state, no silent path past the judge.
 
 ## Install
 
@@ -114,12 +125,15 @@ The status line shows the live phase glyph:
 | `/until-done cancel` | Clear the goal |
 | `/until-done budget <n>` | Change turn budget (1..20000; >500 prompts a confirm) |
 | `/until-done ask <question>` | Side question — does **not** preempt the loop |
-| `/until-done autopilot` | Skip the user-confirm dialog |
+| `/until-done autopilot` | Toggle skipping the contract dialog for future setups |
+| `/until-done judge` | Show the session-default judge mode |
+| `/until-done judge <provider>/<modelId>` | Set a cross-model judge default (recommended; e.g. `anthropic/claude-opus-4-7`) |
+| `/until-done judge same` | Set same-model self-judge as the default |
+| `/until-done judge clear` | Unset the judge default; future setups must specify `judgeModel` or `sameModelJudge: true` per goal |
 | `/until-done help` | Show this list |
 
-Plus: `--until-done "<intent>"` CLI flag, `Ctrl+G` shortcut to redraw
-the status widget, and `prompts/until-done.md` as a prompt-template
-alias.
+Plus: `--until-done "<intent>"` CLI flag and `Ctrl+Shift+G` shortcut
+to redraw the status widget.
 
 ### Tools (8)
 
@@ -130,27 +144,72 @@ alias.
 | `until_done_replan` | Mid-execution restructuring — insert/remove/replace/split/merge/reorder |
 | `until_done_task_update` | Patch a single task — status, learnings, gotchas, context |
 | `until_done_progress` | Record a one-line progress note + optional phase transition |
-| `until_done_complete` | Declare done — requires quoted `verifyCommand` output |
+| `until_done_complete` | Declare done — requires quoted `verifyCommand` output. If the contract opted into a `judgeModel`, the executor's claim is verified by that model before the goal transitions to `done`. |
 | `until_done_block` | Pause with a question for the user |
 | `until_done_distill` | After complete: compile the journey into a PRD at `.until-done/distilled.md` |
 
+### Cross-model judge (default-on, required)
+
+Every `until_done_complete` is gated by a strict-JSON judge LLM call.
+`until_done_set` requires you to pick a judge mode up front:
+
+- **Cross-model (default, recommended):** set
+  `judgeModel: { provider, modelId }` to a model **different** from
+  the executor. The judge sees only the goal, done-criteria,
+  verifyCommand, and the executor's cited evidence — no executor
+  history to bias it. Cross-vendor pairs (Anthropic + OpenAI), or
+  same-family different-size pairs (Sonnet executor / Opus judge,
+  GPT-5 executor / GPT-5-mini judge), both work.
+- **Same-model self-judge:** set `sameModelJudge: true` to use the
+  active executor model with a fresh, completion-focused context.
+  Use only when no second model is available — it's strictly weaker
+  than cross-model for Ralph-loop convergence.
+- **Neither set:** `until_done_set` refuses with `judge_unspecified`.
+  There is no silent path past the judge.
+
+The `/until-done judge` slash command lets the **user** pre-configure
+a session-level default so the LLM doesn't have to specify on every
+goal. `/until-done judge anthropic/claude-opus-4-7` configures
+cross-model; `/until-done judge same` configures same-model;
+`/until-done judge clear` unsets. Per-goal `until_done_set` arguments
+always win over the user default.
+
+Verdict semantics:
+
+- Verdict `done` → executor's claim approved; status → `done`;
+  judge's reason appended as evidence.
+- Verdict `continue` → completion refused; judge's reason appended as
+  evidence; loop stays `active` and the executor must address the gap
+  with stronger evidence.
+- Judge unavailable / unparseable → fail-open with a warning evidence
+  line so judge-infra glitches don't block legitimate completion.
+
+This closes the only convergence gap in the Ralph loop: a single
+model evaluating its own work has a documented tendency to talk
+itself into premature "done." Cross-model judge breaks that loop
+because the judge has no commitment to the executor's previous
+turns.
+
 ## Pi primitive coverage matrix
 
-The brief was: *use every Pi primitive, and have Pi call the shots*.
-Each row below maps a primitive to how `/until-done` uses it. Lines
-marked **no-op** are intentionally inert — exercising a hook for its
-own sake would violate Pi philosophy.
+The brief was: *use every Pi primitive that the goal-pursuit loop
+needs, and have Pi call the shots wherever the active LLM can decide
+better than the extension*. Each row below maps a primitive to how
+`/until-done` uses it. Lines marked **no-op** are intentionally inert
+— exercising a hook for its own sake would violate Pi philosophy.
+Primitives that don't serve the loop (e.g. provider registration,
+editor-text mutation) are explicitly listed as "not used" below.
 
-### Hook events (29/29 addressed)
+### Hook events (28/29 subscribed; one declarative)
 
 | Event | Mode | Why |
 | --- | --- | --- |
-| `resources_discover` | active | Declare companion `skills/` and `prompts/` paths so the package is plug-and-play |
+| `resources_discover` | declarative | Companion `skills/` and `prompts/` paths are declared via `package.json#pi.skills` and `package.json#pi.prompts` so Pi's package manager handles discovery (relative paths in a runtime hook resolve against cwd, not the extension dir, so the declarative form is the only correct path) |
 | `session_start` | active | Reconstruct goal state from custom entries; honor `--until-done` flag; warn if `@qhn/pi-goal` is also installed |
 | `session_before_switch` | active | Confirm before leaving an active goal |
 | `session_before_fork` | active | Three-way choice: carry/leave/cancel the fork |
-| `session_before_compact` | active | Append goal context to compaction's `customInstructions` |
-| `session_compact` | active | Re-anchor by emitting a `verdict` state event after compaction |
+| `session_before_compact` | not subscribed | `SessionBeforeCompactResult` has no `customInstructions` slot — Pi reads compaction's customInstructions from outside the hook, so mutation is a no-op. Goal context is preserved via `session_compact` (re-anchor as a `CustomMessageEntry` in LLM context) and the per-turn system-prompt reminder via `before_agent_start` |
+| `session_compact` | active | Re-anchor by emitting a `verdict` state event AND a `custom_message` containing recent evidence, learnings, and the current task — so the next turn's LLM context retains them past the compaction summary |
 | `session_before_tree` | observed | Pi handles snapshotting; nothing to gate |
 | `session_tree` | active | Full state reconstruction from new branch (todo.ts pattern) |
 | `session_shutdown` | active | Clear status + widget keys cleanly |
@@ -159,7 +218,7 @@ own sake would violate Pi philosophy.
 | `after_provider_response` | observed | Telemetry counter |
 | `before_agent_start` | active | **Append** (never replace) a goal reminder block to the system prompt |
 | `agent_start` | active | Reset per-iteration counters; set working-message to "pursuing: …" |
-| `agent_end` | active | THE JUDGE STEP: budget check, spin-guard, queue continuation as user message |
+| `agent_end` | active | THE HEURISTIC JUDGE STEP: budget check, spin-guard, user-driven-turn detection, CI on stop, clean-end nudge, queue continuation. (LLM-based cross-model judge fires inside `until_done_complete`, not here.) |
 | `turn_start` | active | Refresh status line |
 | `turn_end` | active | Capture last assistant text snapshot |
 | `message_start` | observed | Reserved hook |
@@ -173,7 +232,7 @@ own sake would violate Pi philosophy.
 | `tool_call` | active | **POLICY GATE**: enforce ask-before list against `bash`; tally progress signals per built-in tool |
 | `tool_result` | observed | Reserved for future progress detection |
 | `user_bash` | observed | Counter only — user-driven activity is allowed but doesn't count toward goal progress |
-| `input` | active | Mark `userMessagedThisTurn = true` so `agent_end` skips auto-continuation when the user has spoken |
+| `input` | active | Mark `userMessagedThisTurn = true` for **interactive-source** input only (extension-source `pi.sendUserMessage` calls don't flag it), so `agent_end` skips auto-continuation only when the human has actually spoken |
 
 ### Built-in tool coverage (7/7 enumerated)
 
@@ -196,13 +255,12 @@ nothing useful that turn.
 | Primitive | Where |
 | --- | --- |
 | `pi.registerCommand` | `/until-done` with subcommand autocomplete |
-| `pi.registerTool` | `until_done_set`, `until_done_complete`, `until_done_block`, `until_done_progress` |
+| `pi.registerTool` | All 8 tools: `until_done_set`, `until_done_plan`, `until_done_replan`, `until_done_task_update`, `until_done_progress`, `until_done_complete`, `until_done_block`, `until_done_distill` |
 | `pi.registerFlag` | `--until-done <text>` |
-| `pi.registerShortcut` | `Ctrl+G` toggles the contract widget |
-| `pi.registerMessageRenderer` | Custom render for `until-done.continuation` messages |
+| `pi.registerShortcut` | `Ctrl+Shift+G` toggles the contract widget |
 | `pi.appendEntry` | Persists `until-done.state` events (load/save) |
 | `pi.sendUserMessage` | Continuation prompts + setup interview |
-| `pi.sendMessage` | Continuation tick rendered in TUI |
+| `pi.sendMessage` | Re-anchors goal context as a `CustomMessageEntry` after compaction (with `display:false`) |
 | `pi.getCommands` | Detects `@qhn/pi-goal` collisions |
 | `pi.getFlag` | Reads `--until-done` value |
 | `ctx.ui.confirm/select/input/editor` | Setup confirmation, fork choice, ask-before, cancel |
@@ -215,15 +273,26 @@ nothing useful that turn.
 | `ctx.ui.theme.fg` | All UI color uses theme tokens |
 | `ctx.sessionManager.getBranch` | State reconstruction from JSONL entries |
 | `ctx.waitForIdle` | Setup flow waits for the assistant before opening confirm |
+| `ctx.signal` | Threaded into CI subprocesses so user `Esc` aborts in-flight checks. Also threaded into the cross-model judge LLM call so Esc cancels in-flight verdict requests. |
+| `ctx.modelRegistry` | Used by the cross-model judge to resolve the configured judge model and its auth (api key + headers). |
+| `pi-ai`'s `complete()` | Used by the cross-model judge for a one-shot LLM call against the judge model — kept out of Pi's session so it doesn't pollute the executor's context. |
 | Skills (`skills/until-done/SKILL.md`) | Loaded on demand to teach Pi the contract & tool protocol |
-| Prompt templates (`prompts/until-done.md`) | Alternate invocation: `/until-done` as a template-style prompt |
+| Prompts (`prompts/`) | Reserved for future prompt templates; `/until-done` itself is an extension command (which takes precedence over template names anyway) |
 
-> **Not used:** `pi.registerProvider`/`unregisterProvider` (the goal is
-> active-model-as-judge, not a separate provider), `pi.setActiveTools`
-> (would silently disable user tools — a Pi-philosophy violation),
-> `ctx.compact`/`fork`/`navigateTree`/`switchSession`/`newSession`
-> (those replace user state and must stay user-initiated). The
-> extension intentionally leaves these on the table.
+> **Not used (intentional):** `pi.registerProvider`/`unregisterProvider`
+> (extension does not register providers in production — judges resolve
+> through the user's existing model registry; the test harness uses
+> `pi.registerProvider` to wire in a faux judge for deterministic tests),
+> `pi.setActiveTools` (would silently disable user tools — a
+> Pi-philosophy violation), `ctx.compact`/`fork`/`navigateTree`/
+> `switchSession`/`newSession` (those replace user state and must stay
+> user-initiated), `pi.exec` (CI runs through its own `Bun.spawn` to
+> thread `ctx.signal`), `pi.events` and `pi.setSessionName`/
+> `setLabel`/`setModel`/`setThinkingLevel` (no value when Pi already
+> drives those decisions), and most of the editor-mutating
+> `ctx.ui.*` surface (`editor`, `setEditorText`, `pasteToEditor`,
+> `setHeader`/`setFooter`, etc. — would fight the user for the
+> input box). The extension intentionally leaves these on the table.
 
 ## North Star + dynamic task list
 
@@ -371,9 +440,9 @@ end-to-end:
 | | `@qhn/pi-goal` | Hermes `/goal` | `/until-done` |
 | --- | --- | --- | --- |
 | Setup flow | User-led interview | None — judge asks each turn | Pi-led interview |
-| Judge | None — model self-decides | Auxiliary model judge call | Pi self-judges via tools |
+| Judge | None — model self-decides | Auxiliary model judge call | Self-judge via tools by default; opt-in cross-model judge gates `until_done_complete` |
 | State storage | Pi session entries | SessionDB.state\_meta | Pi session entries |
-| Hook coverage | 1–2 events | n/a (Hermes-internal) | All 29 events |
+| Hook coverage | 1–2 events | n/a (Hermes-internal) | 28/29 events subscribed (one declarative) |
 | Conflict-safe | yes | n/a | yes (auto-detects qhn/pi-goal) |
 | System-prompt mutation | none | none | append-only |
 
@@ -387,15 +456,25 @@ else in the package ecosystem.
 
 1. **Extension loaded mid-session** → state reconstructs from existing
    custom entries; if none, no-op.
-2. **Compaction during a goal** → goal context appended to compaction
-   `customInstructions`; state re-anchored after.
+2. **Compaction during a goal** → on `session_compact`, the extension
+   emits a `CustomMessageEntry` (LLM-bound, `display:false`) containing
+   the goal headline, verifyCommand, current task, recent evidence and
+   recent learnings — so the next turn's LLM context retains them past
+   the compaction summary. The per-turn system-prompt reminder via
+   `before_agent_start` keeps the locked North Star in front of the
+   model on every subsequent call.
 3. **Fork during a goal** → user picks via `select` dialog.
 4. **Switch session during a goal** → confirm dialog protects against
    accidental loss.
 5. **Branch via `/tree`** → state fully rebuilt from new branch (matches
    the todo.ts reference pattern).
 6. **User interjects mid-loop** → `input` hook flags
-   `userMessagedThisTurn`; `agent_end` skips continuation.
+   `userMessagedThisTurn` (interactive-source only — extension-driven
+   `pi.sendUserMessage` calls don't trigger it); `agent_end` consults
+   the flag, persists a `verdict: continue` state event with reason
+   `"user-driven turn"`, and skips auto-continuation. Flag resets in
+   `agent_end` after consumption (not in `agent_start`, which would
+   race with the input hook).
 7. **Model produces no tools/text** → `progressSignalsThisTurn === 0`
    triggers `blocked` with spin-guard reason, prevents tight loop.
 8. **Turn budget exhausted** → auto-pause with explicit `/until-done
@@ -433,8 +512,9 @@ else in the package ecosystem.
     `goal_exists`.
 23. **Tool called before approval** → `until_done_set` rejects with
     `not_confirmed`.
-24. **Skill discovery race** → `resources_discover` returns
-    relative-to-package paths; works regardless of install location.
+24. **Skill discovery** → declared via `package.json#pi.skills` and
+    `pi.prompts` so Pi's package manager resolves paths against the
+    extension root, not the user's cwd.
 25. **Session shutdown** → status + widget keys cleared; entries
     persist on disk for the next `pi -c`.
 
@@ -494,20 +574,94 @@ The GitHub workflow runs the full suite on **macos-latest**,
 strategy. The release-readiness job runs the same matrix on `main` and
 on dispatch.
 
-Tests live in [`tests/`](tests/):
+### Upstream Pi watcher (auto-merge gated on CI + CodeRabbit)
+
+Two workflows cooperate to keep this extension current with upstream
+pi-mono with no manual ceremony when the upgrade is clean — and
+**zero auto-merges when it's not**:
+
+1. **`.github/workflows/upstream-watch.yml`** (daily 06:13 UTC + manual
+   dispatch) — checks npm for new releases of
+   `@mariozechner/pi-coding-agent` and `@mariozechner/pi-ai`, refreshes
+   `bun.lock` if a bump is available, runs `mise run ci` against the
+   bumped versions in-workflow, and opens / updates a PR
+   (`upstream/pi-bump`) with `coderabbitai` requested as reviewer and
+   the `auto-merge` label.
+2. **`.github/workflows/upstream-pi-merge-gate.yml`** — fires on every
+   PR review submission and every CI workflow completion. It evaluates
+   the PR's latest head SHA against **two explicit gates**:
+   - **CI is green** — every required check run on the head SHA
+     reports `success` (or `skipped`), and at least three checks have
+     completed (the OS matrix). This excludes the gate's own runs to
+     avoid deadlocking on itself.
+   - **CodeRabbit approved** — the most recent review from
+     `coderabbitai[bot]` is `APPROVED`.
+
+   Only when **both** gates are green on the same SHA does the workflow
+   call `gh pr merge --squash --delete-branch`. Either gate failing
+   keeps the PR open. The gate re-evaluates on every push, every CI
+   completion, and every review submission, so push-fixes converge
+   automatically.
+
+This is an **explicit gate in workflow source**, not GitHub's native
+auto-merge. Branch protection settings are unnecessary for the gate to
+work, though they remain a useful defense-in-depth.
+
+Repo prerequisites:
+
+1. **`UPSTREAM_PAT` repo secret** — a personal access token with
+   `repo` + `workflow` scope. Without it, PRs created by
+   `upstream-watch.yml` use `GITHUB_TOKEN` and **no downstream
+   workflows fire on the PR** (GitHub's recursive-workflow safeguard).
+   The merge gate would then never see CI results and would never
+   merge. The workflows fall back to `GITHUB_TOKEN` when the secret is
+   absent, so the PR opens but holds indefinitely until CI is
+   re-triggered manually.
+2. **CodeRabbit installed** on the repo (<https://app.coderabbit.ai>).
+   The workflow's `reviewers: coderabbitai` request invites it
+   explicitly; CodeRabbit posts an approving review when its analysis
+   is clean.
+
+When upstream introduces a real API break, the in-workflow CI fails,
+the PR-triggered CI matrix fails, the merge gate refuses to merge —
+fix the extension code drift before merging rather than pinning back.
+
+Tests live in [`tests/`](tests/) and run against a **real Pi runtime**
+(via `createAgentSessionRuntime` from `@mariozechner/pi-coding-agent`)
+with deterministic LLM responses supplied by `registerFauxProvider`
+from `@mariozechner/pi-ai`. No hand-rolled `ExtensionAPI` mocks. Real
+fs (temp dirs), real subprocesses (`Bun.spawn`), real `AbortSignal`
+abort propagation. The harness lives in
+[`tests/helpers/`](tests/helpers/).
 
 | Path | Covers |
 | --- | --- |
+| `tests/integration/harness-smoke.test.ts` | Runtime boots; extension binds; tools and command register |
+| `tests/integration/goal-flow.test.ts` | Full happy-path E2E: setup → set → plan → progress → task_update → complete → distill, with real `tasks.yaml` + `distilled.md` on disk |
+| `tests/tools/lifecycle.test.ts` | `until_done_set/complete/block/progress` status guards + state transitions |
+| `tests/tools/judge.test.ts` | Cross-model judge: schema round-trip, judge-approves, judge-rejects, malformed JSON fail-open |
+| `tests/tools/plan.test.ts` | `until_done_plan` dependency validation, `tasks.yaml` write |
+| `tests/tools/replan.test.ts` | `until_done_replan` cycle detection, done-immutability, replanLog growth |
+| `tests/tools/task-update-distill.test.ts` | Task patches, cursor advancement, `distilled.md` write |
+| `tests/commands/router.test.ts` | Subcommand dispatch — autopilot toggle, "status report on the migration" → setup, budget numeric vs. text disambiguation |
+| `tests/commands/setup.test.ts` | Contract dialog approve/reject, autopilot skips dialog, replace-vs-keep selector |
+| `tests/commands/control.test.ts` | Pause/resume/cancel/budget — including resume-from-done with confirm and cleanEndPrompts reset |
+| `tests/commands/info-ask.test.ts` | Status / detail / tasks / northstar / replan-log / ask side-question |
+| `tests/hooks/agent-hooks.test.ts` | `agent_start`/`agent_end` — `userMessagedThisTurn` race fix (#1), budget exhaustion path |
+| `tests/hooks/before-agent-start.test.ts` | System-prompt reminder block — augments only when active, includes verifyCommand line |
+| `tests/hooks/session-hooks.test.ts` | `session_start` reconstruction, `session_compact` re-anchor (`CustomMessageEntry`), `session_shutdown` cleanup |
+| `tests/hooks/tools-hook.test.ts` | Ask-before — UI-on confirm, no-UI block, scoring, `until_done_*` exclusion (#20) |
+| `tests/ci/discovery.test.ts` | `discoverChecks` with real fs scenarios — Java vs Kotlin Gradle, PYTHON vs PYTHON_UV, ROBLOX vs LUAU, content-sniff disambiguation |
+| `tests/ci/runner.test.ts` | `runOne` against real subprocesses — `true`/`false`/timeout/AbortSignal abort/output truncation marker |
 | `tests/mise.test.ts` | `routeThroughMise` / `isMiseCommand` semantics |
-| `tests/profiles/bun.test.ts` | TypeScript-bun profile shape |
-| `tests/profiles/pnpm.test.ts` | NODE_PNPM profile shape |
-| `tests/profiles/npm.test.ts` | NODE_NPM profile shape |
-| `tests/profiles/yarn.test.ts` | NODE_YARN profile shape |
-| `tests/profiles/deno.test.ts` | DENO profile shape |
+| `tests/profiles/{bun,pnpm,npm,yarn,deno}.test.ts` | Each TypeScript runtime profile shape |
 | `tests/platform/os.test.ts` | macOS/Linux/Windows path + line-ending neutrality |
 | `tests/platform/discovery.test.ts` | All profiles use POSIX-style markers; mise as sole entry point |
+| `tests/build-smoke.ts` | The runtime entrypoint resolves on every supported OS |
 
-Run them with `mise run test`.
+Run them with `mise run test`. The full suite (`mise run ci`) covers
+typecheck + lint + format + compile + test + build and finishes in
+under 5 seconds locally.
 
 ## Contributing
 

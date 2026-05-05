@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cross-model judge gate on `until_done_complete` (default-on).**
+  Every completion claim is verified by an LLM judge before the goal
+  transitions to `done`. `until_done_set` requires an explicit choice:
+  `judgeModel: { provider, modelId }` (cross-model — recommended; the
+  judge is a DIFFERENT model than the executor and the standard fix
+  for Ralph-loop oscillation) or `sameModelJudge: true` (same-model
+  self-judge with fresh, completion-focused context — use only when no
+  second model is available). Setup refuses with `judge_unspecified`
+  if neither is provided — there is no silent path past the judge.
+- `/until-done judge` slash command — user-side picker for the
+  session-default judge mode. `/until-done judge <provider>/<modelId>`
+  configures cross-model (recommended), `/until-done judge same`
+  configures same-model self-judge, `/until-done judge clear` unsets,
+  bare `/until-done judge` shows the current default. Per-goal
+  `until_done_set` parameters always win over the user default.
+- Judge verdict semantics: strict-JSON `{verdict: "done"|"continue",
+  reason}`. `continue` blocks the transition and appends the judge's
+  reason as evidence (loop stays active); `done` proceeds and the
+  judge's reason is appended too; unparseable or unavailable judge
+  fails open with a warning evidence line so judge-infra glitches
+  don't block legitimate completion.
+- `opensrc` (vercel-labs/opensrc) added as a dev dependency for fetching
+  upstream source on demand. Run
+  `bun x opensrc fetch github:badlogic/pi-mono` to cache pi-mono's source
+  at `~/.opensrc/repos/github.com/badlogic/pi-mono/main`.
+- **Upstream Pi auto-update** — two cooperating workflows keep
+  `@mariozechner/pi-coding-agent` / `@mariozechner/pi-ai` current with
+  zero manual ceremony when the bump is clean, and **zero merges**
+  when it isn't:
+  - `.github/workflows/upstream-watch.yml` (daily 06:13 UTC + manual
+    dispatch) checks npm for new releases, runs `bun update`, runs
+    `mise run ci` against the bumped versions, and opens / updates a
+    PR `upstream/pi-bump` with `coderabbitai` requested as reviewer
+    and the `auto-merge` label.
+  - `.github/workflows/upstream-pi-merge-gate.yml` fires on every PR
+    review submission and every CI workflow completion. It evaluates
+    the latest head SHA against two **explicit gates** — (a) every
+    check run on the SHA reports `success`/`skipped` AND at least 3
+    checks have completed (the OS matrix), AND (b) the most recent
+    review from `coderabbitai[bot]` is `APPROVED` — and squash-merges
+    only when both are green on the same SHA. Either gate failing
+    keeps the PR open. Re-evaluates on every push, CI completion, and
+    review submission so push-fixes converge automatically. Gate
+    enforcement lives in workflow source, not in branch-protection
+    settings — branch protection is a useful defense-in-depth but
+    unnecessary for the gate to work.
+  - Prerequisites: `UPSTREAM_PAT` repo secret (PAT with
+    `repo`+`workflow` scope so the PR-triggered CI matrix actually
+    fires; `GITHUB_TOKEN`-created PRs trigger no downstream
+    workflows), and CodeRabbit installed on the repo. See README
+    §"Upstream Pi watcher" for full setup notes.
+
+### Changed
+- Status-widget shortcut: `Ctrl+G` → **`Ctrl+Shift+G`** to avoid colliding
+  with Pi's built-in `app.editor.external` (open in `$VISUAL`/`$EDITOR`).
+- Skill/prompt discovery: dropped the `resources_discover` runtime hook
+  (which resolved relative paths against the user's cwd, not the
+  extension dir, producing a "skill path does not exist" warning).
+  Discovery is now declarative via `package.json#pi.skills` and
+  `pi.prompts` only.
+- Autopilot is now a sticky session toggle (run `/until-done autopilot`
+  once; future setups skip the contract-confirmation dialog until you
+  toggle again). Previously the toggle was scoped to a setup state that
+  was unreachable through normal flow.
+- Subcommand parser no longer swallows goal intents that start with a
+  subcommand keyword (e.g. `/until-done status report on the migration`
+  is now treated as a goal, not as `cmdStatus`).
+- CI subprocesses now thread the agent's `ctx.signal` through
+  `Bun.spawn`, so user `Esc` aborts in-flight checks instead of letting
+  them run to their per-verb timeout.
+- Language detection no longer cross-pollutes ambiguous-marker
+  languages: `KOTLIN_GRADLE`/`KOTLIN_MAVEN` require a Kotlin signal in
+  the build script; `PYTHON_UV` ordered before `PYTHON` so uv-managed
+  projects don't fall back to bare `mypy`/`ruff`/`pytest`; `LUAU`
+  markers no longer overlap with Roblox-only `default.project.json`/
+  `rojo.json`.
+
+### Fixed
+- `agent_start` no longer wipes `userMessagedThisTurn` before
+  `agent_end` consults it — user-interjects-mid-loop now actually
+  yields (README edge case 6).
+- `session_before_compact` no longer attempts to mutate
+  `event.customInstructions` (no-op against pi-mono — there is no
+  `customInstructions` slot in `SessionBeforeCompactResult`). Goal
+  context is re-anchored on `session_compact` via a `CustomMessageEntry`
+  (LLM-bound, `display:false`) so recent evidence + learnings survive
+  the compaction summary.
+- Continuation tick no longer sent to the LLM twice. Previously
+  `pi.sendMessage` (which produces a `CustomMessageEntry` and DOES go
+  to LLM context) and `pi.sendUserMessage` were both called per loop
+  iteration with the same text.
+- Ask-before list is no longer silently bypassed when there is no
+  interactive UI (`!ctx.hasUI` — print/RPC mode). Matching tools are
+  blocked with an explanatory refusal.
+- `until_done_set` now refuses any status other than `setup`
+  (previously accepted `done`/`cleared`/`blocked`, which let the agent
+  silently overwrite a locked North Star without re-approval — README
+  edge case 22).
+- `cmdResume` now allows resuming from `done` with a confirm dialog
+  (README edge case 9 — challenge a false `until_done_complete`),
+  resets `cleanEndPrompts` so the clean-end nudge can re-fire.
+- `until_done_*` meta-tool calls no longer score progress signals,
+  closing a hole that let the model satisfy the spin-guard without
+  doing real work.
+- CI runner `output` truncation marker is now visible (`[output
+  truncated; showing last 4000 chars]`) so the LLM knows when output
+  was cut.
+
+### Removed
+- `prompts/until-done.md` template (was permanently shadowed by the
+  `/until-done` extension command — extension commands take precedence
+  over prompt templates of the same name).
+- `extensions/lib/renderer.ts` (custom renderer for the doubled-up
+  continuation-tick message — became dead code with the duplication
+  fix).
+
 ## [0.1.1] — 2026-05-04
 
 ### Added

@@ -27,6 +27,10 @@ const PHASE_1 = [
 	"   • goalType — ticket | exploratory (see PHASE 0)",
 	"   • surfaces[] — list of {kind, location, notes?} for every data source / staging access / dashboard / sandbox the user has provided",
 	"   • startPhase — analysis | bootstrap | red | green | refactor | cleanup | none",
+	"   • Judge mode — REQUIRED. Every until_done_complete is gated by an LLM judge. Pick exactly one (until_done_set will refuse with judge_unspecified if both are missing AND the user has not pre-configured /until-done judge):",
+	"       - judgeModel: { provider, modelId } — RECOMMENDED. A model DIFFERENT from the executor. Cross-model is the standard fix for Ralph-loop oscillation. If the user has not specified one in their intent, ASK in the contract dialog: 'Which model should judge completion? Pick one different from the executor for strongest convergence (e.g. anthropic/claude-opus-4-7 if the executor is claude-sonnet-4-6).'",
+	"       - sameModelJudge: true — fallback when no second model is available. The executor self-judges with a fresh, completion-focused context. Strictly weaker than cross-model.",
+	"     The user can also pre-configure a session default with /until-done judge <provider>/<modelId> (or /until-done judge same). If they have, the extension fills it in when you omit both fields — surface that to the user in the contract dialog so they can confirm.",
 ];
 
 const PHASE_2 = [
@@ -48,7 +52,7 @@ const PHASE_2 = [
 const PHASE_3 = [
 	"PHASE 3 — ACTIVATION",
 	"6. After the user confirms:",
-	"   a. Call `until_done_set` with the contract fields (including goalType + surfaces).",
+	"   a. Call `until_done_set` with the contract fields (including goalType, surfaces, AND the judge-mode field — judgeModel or sameModelJudge — chosen in PHASE 1).",
 	"   b. Call `until_done_plan` with the full tasks array.",
 	"7. Begin work on the first task with no dependencies.",
 ];
@@ -62,7 +66,7 @@ const PHASE_4 = [
 	"   - Add files/URLs you needed via `addContext`.",
 	"   - Run validationSteps and ciCommands.",
 	"   - When done, `until_done_task_update` with status='done'.",
-	"9. When ALL tasks are done AND verifyCommand passes (with quoted output), call `until_done_complete`.",
+	"9. When ALL tasks are done AND verifyCommand passes (with quoted output), call `until_done_complete`. The cross-model judge runs inside that call: it sees only the goal, done-criteria, verifyCommand, and your cited evidence — nothing else from this conversation. Cite evidence the judge can verify literally (paste command output, reference file paths). Don't paraphrase. If the judge returns 'continue', re-read its reason, address the specific gap, then call `until_done_complete` again with stronger evidence — re-running with the same evidence will be rejected again.",
 	"10. After complete, call `until_done_distill` to compile the journey into a PRD-shaped summary the user can act on.",
 	"11. If blocked at any point, call `until_done_block`.",
 ];

@@ -7,8 +7,10 @@ description: How to drive Pi's `/until-done` autonomous goal loop — owning the
 
 You are the agent in a Pi session where `/until-done` may be active. The
 extension hands you a standing goal and lets you keep working across
-turns until you (the model) declare the goal done or blocked. **You
-call the shots — not the user, not a separate judge.**
+turns until you declare the goal done or blocked. **You drive the
+loop, but `until_done_complete` is gated by an LLM judge** — see the
+"Cross-model judge" section below. You can't talk yourself into
+"done"; the judge has to agree first.
 
 ## When this skill applies
 
@@ -49,13 +51,15 @@ stay in `analysis` and end with a written summary.
 
 ## North Star — what's locked vs. mutable
 
-`until_done_set` locks four things into a **North Star** that **cannot
+`until_done_set` locks five things into a **North Star** that **cannot
 change** for the lifetime of the goal:
 
 1. `goal` — the destination
 2. `doneCriteria` — what counts as arriving
 3. `verifyCommand` — the one shell command that proves arrival
 4. `askBefore` — boundaries the user controls
+5. `judgeModel` / `sameModelJudge` — who verifies the "I'm done" claim
+   (see "Cross-model judge" below)
 
 If any of those four were drafted wrong, the user must
 `/until-done cancel` and start a new setup. **Do not work around
@@ -92,6 +96,19 @@ one approval**: the contract (North Star) and the YAML task list.
      etc.).
    - **startPhase**: `analysis` for most goals; `red` if the user's
      intent already names the failing case; `none` for non-code goals.
+   - **Judge mode** — REQUIRED. Pick exactly one (`until_done_set`
+     refuses with `judge_unspecified` if you skip both):
+     - `judgeModel: { provider, modelId }` (recommended) — a model
+       **different** from the executor. Cross-model is the standard
+       fix for Ralph-loop oscillation. Inspect `/until-done judge` to
+       see if the user has a session default; if they have one, use
+       it (or omit both fields and the extension fills it from the
+       default). If the user has not configured one, ask them in the
+       contract dialog: _"Which model should judge completion? Pick
+       one different from the executor for strongest convergence."_
+     - `sameModelJudge: true` — opt into same-model self-judge with a
+       fresh, completion-focused context. Strictly weaker; use only
+       when no second model is available.
 3. Decompose the goal into a complete YAML task list. For each task fill in **every** field:
 
    ```yaml
@@ -180,10 +197,44 @@ If you've marked all planned tasks done but haven't called
 you cannot drift indefinitely. After two such nudges in a session,
 the loop pauses and waits for the user.
 
+## Cross-model judge
+
+Every `until_done_complete` is gated by an LLM judge. The judge sees
+only the goal, done-criteria, verifyCommand, and the evidence you
+cite — no executor history to bias it. It returns strict JSON
+`{verdict: "done" | "continue", reason: "<one sentence>"}`.
+
+- **Verdict `done`** → goal transitions to `done`; the judge's reason
+  is appended to evidence alongside yours.
+- **Verdict `continue`** → completion is **refused** with reason
+  `judge_rejected`. The judge's explanation is appended to the goal's
+  evidence and you stay in `active`. Read the reason. Address the
+  specific gap. Then call `until_done_complete` again with stronger
+  evidence — usually that means actually running the verifyCommand
+  and quoting its output, not paraphrasing it.
+- **Judge unavailable / unparseable** → fail-open with a warning
+  evidence line. The goal completes anyway, but the warning shows in
+  `/until-done northstar` so the user knows the verdict was skipped.
+
+You don't call the judge yourself. The extension calls it inside
+`until_done_complete`. Your job: cite evidence the judge can read and
+verify literally. Quote command output. Reference file paths. Don't
+say "tests pass" — say "`bun test` output: 1 pass, 0 fail" with the
+literal output.
+
+If the contract uses `sameModelJudge: true`, the same model that's
+running you will judge with a fresh context. The judge does NOT see
+this conversation, so weak evidence (gestures at "should work")
+fails just as hard as it would with a different model.
+
 ## Hard rules
 
 - **Never** call `until_done_complete` speculatively. Run
-  `verifyCommand` and paste the output as evidence.
+  `verifyCommand` and quote its output as evidence — the judge will
+  reject paraphrases and proxy signals.
+- **Never** retry `until_done_complete` after a `judge_rejected`
+  refusal without addressing the judge's specific gap. Re-running
+  with the same evidence will be rejected again.
 - **Never** call `until_done_set` during work mode (the contract is
   locked once activated).
 - **Never** ignore the "ask before" list. If you're unsure whether a
@@ -214,6 +265,10 @@ the loop pauses and waits for the user.
 | `/until-done resume` | Resume + reset budget |
 | `/until-done cancel` | Clear the goal (only way to change North Star) |
 | `/until-done budget <n>` | Change turn budget (1..20000) |
+| `/until-done judge` | Show the user's session-default judge mode |
+| `/until-done judge <provider>/<modelId>` | Set a cross-model judge default |
+| `/until-done judge same` | Set same-model self-judge default |
+| `/until-done judge clear` | Unset; future setups must specify per goal |
 
 You don't have to surface those — the extension handles them. Stay
 focused on the contract.

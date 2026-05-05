@@ -86,8 +86,38 @@ A change to this repo is done only when:
   changed, validated, assumed, and not known.
 - Hook handlers compose — every handler returns `undefined` when uninvolved.
 - `before_agent_start` appends to (never replaces) the system prompt.
-- `session_before_compact` appends to (never replaces) `customInstructions`.
+- `session_compact` re-anchors goal context as a `CustomMessageEntry`
+  (`display:false`) on the next turn after compaction. The
+  `session_before_compact` hook is intentionally NOT subscribed —
+  pi-mono's `SessionBeforeCompactResult` has no `customInstructions`
+  slot, so any mutation there is a no-op. Re-anchor through
+  `session_compact` instead, never via `before_compact` mutation.
 - No system-prompt replacement, no side-database, no hidden state. State
   lives in Pi session entries.
+
+## Cross-model judge contract
+
+Every `until_done_complete` is gated by an LLM judge. The contract is
+binding on this repo:
+
+- `until_done_set` REQUIRES one of `judgeModel: { provider, modelId }`
+  (cross-model — recommended) or `sameModelJudge: true` (same-model
+  with fresh context — fallback). Setup refuses with
+  `judge_unspecified` if neither is provided AND the user has not
+  pre-configured a session default via `/until-done judge`. There is
+  no silent path past the judge — `noJudge`-style escape hatches were
+  considered and rejected.
+- The judge sees only goal, done-criteria, verifyCommand, and the
+  executor's cited evidence. It returns strict JSON
+  `{verdict, reason}`. `continue` blocks the transition; `done`
+  proceeds. Unparseable / unavailable judge fails-open with a warning
+  evidence line so judge-infra glitches don't block legitimate
+  completion.
+- Any work that touches the completion path (`tools/complete.ts`,
+  `tools/judge.ts`, the schema in `schemas/set-fields.ts`) must
+  preserve this contract. Tests in `tests/tools/judge.test.ts` are
+  load-bearing — don't relax them to make a change pass; the
+  Ralph-loop convergence property depends on the gate being
+  unconditional.
 
 ## If you violate any constraint, the output is incorrect.
