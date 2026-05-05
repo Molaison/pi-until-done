@@ -23,7 +23,7 @@ on:
         required: false
 
 permissions:
-  contents: read
+  contents: write # required to create the GitHub Release on tag push
   id-token: write # required for OIDC + provenance attestation
   actions: read # required to query other workflow runs
 
@@ -117,3 +117,56 @@ jobs:
 
       - name: Publish to npm with provenance via OIDC
         run: npm publish --provenance --access public
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          ref="${{ github.event.inputs.tag || github.ref_name }}"
+          # github.ref on a tag push is "refs/tags/vX.Y.Z"; ref_name is "vX.Y.Z"
+          if [[ "$ref" == refs/tags/* ]]; then ref="${ref#refs/tags/}"; fi
+          echo "name=$ref" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $ref"
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          tag="${{ steps.tag.outputs.name }}"
+          version="${tag#v}"
+          marker="## [$version]"
+          # Pull the section starting at "## [VERSION]" up to the next "## "
+          # heading. String-comparison match (not regex) so brackets in the
+          # version don't get interpreted as a char-class.
+          awk -v marker="$marker" '
+            index($0, marker) == 1 { in_sec = 1; print; next }
+            in_sec && /^## / { exit }
+            in_sec { print }
+          ' CHANGELOG.md > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "Could not extract notes for $version from CHANGELOG.md; falling back to tag annotation."
+            git tag -l --format='%(contents)' "$tag" > /tmp/release-notes.md
+          fi
+          echo "notes-path=/tmp/release-notes.md" >> "$GITHUB_OUTPUT"
+          echo "--- release notes preview ---"
+          head -40 /tmp/release-notes.md
+
+      - name: Create / update GitHub Release for the tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="${{ steps.tag.outputs.name }}"
+          # Idempotent: create if missing, edit if exists. Mark Latest only
+          # when the tag is on the default branch's tip lineage (gh handles
+          # this automatically via --latest).
+          if gh release view "$tag" --json tagName --jq .tagName 2>/dev/null; then
+            gh release edit "$tag" \
+              --title "$tag" \
+              --notes-file "${{ steps.notes.outputs.notes-path }}" \
+              --latest
+          else
+            gh release create "$tag" \
+              --title "$tag" \
+              --notes-file "${{ steps.notes.outputs.notes-path }}" \
+              --latest
+          fi
+          echo "✓ GitHub Release ready for $tag"
