@@ -80,6 +80,35 @@ A change to this repo is done only when:
 6. tests are isolated, deterministic, parallel-safe (when present)
 7. no proxy signals: quote real command output as evidence
 
+## Release rule — never bump version on a red CI
+
+Local `mise run ci` runs on the developer's OS only. The
+cross-platform matrix (Linux / macOS / Windows) runs in GitHub. Two
+0.2.x patch releases (`0.2.0`, `0.2.1`) shipped tags before remote
+CI had proved out the cross-platform behavior, both held at the
+publish gate, and the only clean recovery was a fresh patch
+version. Never again.
+
+`mise run publish:check` (which `publish:patch` / `publish:minor` /
+`publish:major` all depend on) refuses unless ALL of the following
+hold:
+
+1. local working tree is clean and we're on `main`
+2. local HEAD SHA matches `origin/main` (i.e. already pushed)
+3. the most recent CI workflow run on that exact SHA has
+   `status=completed` AND `conclusion=success`
+
+If any check fails, the bump is refused with a specific remediation
+message — push first, wait for CI green, then bump. Do not work
+around the gate (no `--no-verify`, no manual `npm version`,
+no `--force`). The gate is the contract; circumventing it produced
+the 0.2.0 / 0.2.1 history.
+
+The gate requires `gh` and `jq` on PATH. The
+`.github/workflows/upstream-watch.yml` automation already enforces
+the same rule for upstream-bump PRs; this rule extends the same
+guarantee to local-developer-driven releases.
+
 ## Pi philosophy compliance (pi-config SYSTEM.md)
 
 - Preserve developer agency over context. Be explicit about what was read,

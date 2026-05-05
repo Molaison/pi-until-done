@@ -112,14 +112,53 @@ description = "Inspect what npm would publish without actually publishing"
 run = "npm pack --dry-run"
 
 [tasks."publish:check"]
-description = "Pre-publish gate — runs release-ready + verifies clean tree on main"
+description = "Pre-publish gate — local release-ready + clean tree on main + HEAD pushed + remote CI green on this SHA"
 depends = ["release-ready"]
 run = """
 git diff --quiet || (echo 'Working tree dirty. Commit first.'; exit 1)
 git diff --cached --quiet || (echo 'Staged but not committed. Commit first.'; exit 1)
 branch=$(git rev-parse --abbrev-ref HEAD)
 [ "$branch" = "main" ] || (echo "Not on main (on $branch). Switch first."; exit 1)
-echo '✓ tree clean, on main'
+
+echo '─── remote CI gate ───'
+# Local `mise run ci` only runs on the developer's OS; the cross-platform
+# matrix runs in GitHub. v0.2.0 / v0.2.1 both shipped tags and held the
+# whole publish pipeline hostage because the local bump+tag happened
+# before remote CI proved out the cross-platform behavior. This gate
+# enforces the rule: NEVER bump version unless remote CI is GREEN on the
+# current HEAD SHA.
+
+command -v gh >/dev/null 2>&1 || (echo 'gh CLI not installed — required for remote CI gate. brew install gh / sudo apt install gh.'; exit 1)
+command -v jq >/dev/null 2>&1 || (echo 'jq not installed — required for remote CI gate.'; exit 1)
+
+git fetch --quiet origin main || (echo 'git fetch origin main failed'; exit 1)
+local_sha=$(git rev-parse HEAD)
+remote_sha=$(git rev-parse origin/main)
+if [ "$local_sha" != "$remote_sha" ]; then
+  echo "Local HEAD ($local_sha) does not match origin/main ($remote_sha)."
+  echo "Push your commits first, wait for CI to go green, then re-run this task."
+  exit 1
+fi
+
+data=$(gh run list --commit "$local_sha" --workflow ci.yml --json status,conclusion --limit 1 --jq '.[0]')
+if [ -z "$data" ] || [ "$data" = "null" ]; then
+  echo "No CI workflow run found for $local_sha on origin."
+  echo "If you just pushed, give the workflow a moment to register and re-run."
+  exit 1
+fi
+status=$(echo "$data" | jq -r '.status')
+conclusion=$(echo "$data" | jq -r '.conclusion // ""')
+if [ "$status" != "completed" ]; then
+  echo "CI on $local_sha is still $status. Wait for it to finish (gh run watch)."
+  exit 1
+fi
+if [ "$conclusion" != "success" ]; then
+  echo "CI on $local_sha did NOT pass (conclusion=$conclusion)."
+  echo "Fix the failure on a new commit, push, wait for CI green, then bump."
+  exit 1
+fi
+
+echo "✓ tree clean, on main, HEAD pushed, remote CI green on $local_sha"
 """
 
 [tasks.publish]
