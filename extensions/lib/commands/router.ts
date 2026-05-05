@@ -21,6 +21,7 @@ import {
 	cmdStatus,
 	cmdTasks,
 } from "./info";
+import { cmdJudge } from "./judge";
 import { cmdSetup } from "./setup";
 
 export const subcommands = [
@@ -37,6 +38,7 @@ export const subcommands = [
 	"ask",
 	"help",
 	"autopilot",
+	"judge",
 ] as const;
 
 const ZERO_ARG_SUBCOMMANDS = new Set([
@@ -53,6 +55,14 @@ const ZERO_ARG_SUBCOMMANDS = new Set([
 ]);
 
 const isPositiveInteger = (s: string): boolean => /^\d+$/.test(s);
+
+const looksLikeJudgeArg = (rest: string[]): boolean => {
+	if (rest.length === 0) return true;
+	const head = rest[0];
+	if (head === "same" || head === "clear" || head === "off" || head === "none")
+		return true;
+	return head.includes("/");
+};
 
 const dispatch = async (
 	pi: ExtensionAPI,
@@ -80,6 +90,9 @@ const dispatch = async (
 	}
 	if (head === "ask" && rest.length >= 1) {
 		return cmdAsk(pi, store, ctx, rest.join(" "));
+	}
+	if (head === "judge" && looksLikeJudgeArg(rest)) {
+		return cmdJudge(pi, store, ctx, rest);
 	}
 	return cmdSetup(pi, store, ctx, args);
 };

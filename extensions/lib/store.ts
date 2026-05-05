@@ -6,6 +6,11 @@ import { STATE_CUSTOM_TYPE } from "./constants";
 import { initialState, initialStats } from "./initial-state";
 import type { GoalState, StateEvent, StateEventKind, Stats } from "./types";
 
+export type JudgeDefault =
+	| { mode: "cross"; provider: string; modelId: string }
+	| { mode: "same" }
+	| undefined;
+
 export interface Store {
 	state: GoalState;
 	stats: Stats;
@@ -14,6 +19,7 @@ export interface Store {
 	codeEditsThisTurn: number;
 	userMessagedThisTurn: boolean;
 	autopilotEnabled: boolean;
+	judgeDefault: JudgeDefault;
 	lastTickAt: number;
 }
 
@@ -25,6 +31,7 @@ export const createStore = (): Store => ({
 	codeEditsThisTurn: 0,
 	userMessagedThisTurn: false,
 	autopilotEnabled: false,
+	judgeDefault: undefined,
 	lastTickAt: 0,
 });
 

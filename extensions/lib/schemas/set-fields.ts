@@ -25,6 +25,23 @@ export const SurfaceSchema = Type.Object({
 	),
 });
 
+export const JudgeModelSchema = Type.Object(
+	{
+		provider: Type.String({
+			description:
+				"Provider id from pi-ai's model registry (e.g. 'anthropic', 'openai', or a custom provider).",
+		}),
+		modelId: Type.String({
+			description:
+				"Model id within that provider (e.g. 'claude-opus-4-7', 'gpt-5').",
+		}),
+	},
+	{
+		description:
+			"Cross-model judge — a DIFFERENT model than the executor. This is the default judge mode: every `until_done_complete` is gated by this judge. Cross-model is the standard fix for Ralph-loop oscillation, where the executor talks itself into a premature 'done.' If you do not have a separate judge model available, set `sameModelJudge: true` to use the executor itself with a fresh, completion-focused context.",
+	},
+);
+
 export const CoreSetFields = {
 	goal: Type.String({
 		description: "One-line restatement of the user's intent.",
@@ -64,6 +81,13 @@ export const RuntimeSetFields = {
 			description: `Override the turn budget. Default ${DEFAULT_MAX_TURNS}. Hard ceiling ${HARD_BUDGET_CEILING}.`,
 			minimum: 1,
 			maximum: HARD_BUDGET_CEILING,
+		}),
+	),
+	judgeModel: Type.Optional(JudgeModelSchema),
+	sameModelJudge: Type.Optional(
+		Type.Boolean({
+			description:
+				"Opt out of cross-model judge and use the executor model itself with a fresh, completion-focused context. Use only when no second model is available. Cross-model (`judgeModel`) is strictly preferred for Ralph-loop convergence; one of `judgeModel` or `sameModelJudge: true` is REQUIRED — until_done_set will refuse if neither is provided.",
 		}),
 	),
 };

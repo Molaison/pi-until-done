@@ -76,6 +76,11 @@ export interface Task {
 	notes?: string;
 }
 
+export interface JudgeModel {
+	provider: string;
+	modelId: string;
+}
+
 export interface NorthStar {
 	goal: string;
 	doneCriteria: string;
@@ -84,6 +89,8 @@ export interface NorthStar {
 	decisionStyle: string;
 	goalType: GoalType;
 	surfaces: Surface[];
+	judgeModel?: JudgeModel;
+	sameModelJudge?: boolean;
 }
 
 export interface ReplanLogEntry {

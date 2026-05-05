@@ -17,16 +17,17 @@ import {
 	TOOL_RESULTS,
 } from "../strings";
 import type { GoalState, NorthStar } from "../types";
+import { executeComplete } from "./complete";
 import { failed, ok, refused } from "./result";
 
 type SetInput = Static<typeof SetParams>;
-type CompleteInput = Static<typeof CompleteParams>;
 type BlockInput = Static<typeof BlockParams>;
 type ProgressInput = Static<typeof ProgressParams>;
 
 const buildNorthStar = (
 	params: SetInput,
 	verify: string | undefined,
+	resolved: { judgeModel?: NorthStar["judgeModel"]; sameModelJudge?: boolean },
 ): NorthStar => ({
 	goal: params.goal,
 	doneCriteria: params.doneCriteria,
@@ -35,11 +36,28 @@ const buildNorthStar = (
 	decisionStyle: params.decisionStyle,
 	goalType: params.goalType,
 	surfaces: params.surfaces ?? [],
+	judgeModel: resolved.judgeModel,
+	sameModelJudge: resolved.sameModelJudge,
 });
+
+const resolveJudge = (
+	params: SetInput,
+	store: Store,
+): { judgeModel?: NorthStar["judgeModel"]; sameModelJudge?: boolean } => {
+	if (params.judgeModel) return { judgeModel: params.judgeModel };
+	if (params.sameModelJudge) return { sameModelJudge: true };
+	const fallback = store.judgeDefault;
+	if (!fallback) return {};
+	if (fallback.mode === "same") return { sameModelJudge: true };
+	return {
+		judgeModel: { provider: fallback.provider, modelId: fallback.modelId },
+	};
+};
 
 const setPatch = (
 	params: SetInput,
 	currentMaxTurns: number,
+	resolvedJudge: ReturnType<typeof resolveJudge>,
 ): Partial<GoalState> => {
 	const verify = routeThroughMise(params.verifyCommand);
 	return {
@@ -48,7 +66,7 @@ const setPatch = (
 		askBefore: params.askBefore ?? [],
 		decisionStyle: params.decisionStyle,
 		verifyCommand: verify,
-		northStar: buildNorthStar(params, verify),
+		northStar: buildNorthStar(params, verify, resolvedJudge),
 		goalType: params.goalType,
 		surfaces: params.surfaces ?? [],
 		phase: params.startPhase ?? "analysis",
@@ -65,39 +83,18 @@ const executeSet = async (pi: ExtensionAPI, store: Store, params: SetInput) => {
 		return refused(REFUSAL.goalExists(s.status), "goal_exists");
 	}
 	if (!s.confirmedByUser) return refused(REFUSAL.notConfirmed, "not_confirmed");
+	const judge = resolveJudge(params, store);
+	if (!judge.judgeModel && !judge.sameModelJudge) {
+		return refused(REFUSAL.judgeUnspecified, "judge_unspecified");
+	}
 	persist(
 		pi,
 		store,
 		"set",
-		setPatch(params, s.maxTurns),
+		setPatch(params, s.maxTurns, judge),
 		"contract activated; north star locked",
 	);
 	return ok(TOOL_RESULTS.setActivated, { status: store.state.status });
-};
-
-const executeComplete = async (
-	pi: ExtensionAPI,
-	store: Store,
-	params: CompleteInput,
-) => {
-	const s = store.state;
-	if (s.status !== "active")
-		return failed(REFUSAL.noActiveGoal(s.status), "no_active_goal");
-	persist(
-		pi,
-		store,
-		"complete",
-		{
-			status: "done",
-			lastVerdict: "done",
-			lastReason: params.summary ?? params.evidence.slice(0, 200),
-			evidence: [...s.evidence, params.evidence],
-		},
-		params.summary,
-	);
-	return ok(TOOL_RESULTS.completeMarked(params.summary ?? params.evidence), {
-		status: "done",
-	});
 };
 
 const executeBlock = async (
@@ -158,8 +155,8 @@ const registerComplete = (pi: ExtensionAPI, store: Store) => {
 		label: TOOL_LABELS.complete,
 		description: TOOL_DESCRIPTIONS.complete,
 		parameters: CompleteParams,
-		async execute(_id, params) {
-			return executeComplete(pi, store, params);
+		async execute(_id, params, _signal, _onUpdate, ctx) {
+			return executeComplete(pi, store, params, ctx);
 		},
 	});
 };

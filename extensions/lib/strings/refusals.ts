@@ -21,4 +21,6 @@ export const REFUSAL = {
 	userDenied: (kind: string) => `user denied "${kind}"`,
 	noUiAskBefore: (kind: string) =>
 		`ask-before pattern "${kind}" matched but no interactive UI is available to confirm. Run interactively to approve, or remove the pattern from askBefore.`,
+	judgeUnspecified:
+		"every until_done_complete is gated by a judge LLM call. Cross-model is the default — set `judgeModel: { provider, modelId }` to a DIFFERENT model than the executor (the standard fix for Ralph-loop oscillation). If no second model is available, set `sameModelJudge: true` to use the executor itself with a fresh, completion-focused context. One of the two is required.",
 };
