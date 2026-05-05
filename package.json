@@ -1,6 +1,6 @@
 {
   "name": "pi-until-done",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pi extension that brings Hermes Agent's /goal (Ralph loop with judge) to Pi as /until-done. Pi self-judges every turn, runs verifyCommand to confirm done, and routes all CI/CD through mise across 18 language profiles.",
   "license": "MIT",
   "author": {
