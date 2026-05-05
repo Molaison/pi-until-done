@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-04
+
 ### Added
 - **Cross-model judge gate on `until_done_complete` (default-on).**
   Every completion claim is verified by an LLM judge before the goal
@@ -210,6 +212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests in `tests/`.
 - LICENSE (MIT), SECURITY.md.
 
-[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.0
 [0.1.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.1
 [0.1.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.0
