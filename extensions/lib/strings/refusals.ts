@@ -19,4 +19,6 @@ export const REFUSAL = {
 	noActiveBlock: (status: string) =>
 		`No active goal to block (status=${status}).`,
 	userDenied: (kind: string) => `user denied "${kind}"`,
+	noUiAskBefore: (kind: string) =>
+		`ask-before pattern "${kind}" matched but no interactive UI is available to confirm. Run interactively to approve, or remove the pattern from askBefore.`,
 };

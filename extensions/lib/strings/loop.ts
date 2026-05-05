@@ -1,10 +1,5 @@
 import { REMINDER_HEADERS, REMINDER_LINES } from "./reminders";
 
-export const LOOP_TICK = {
-	rendererPrefix: "↻ until-done",
-	rendererTail: (turn: number, goal: string) => `(turn ${turn}) ${goal}`,
-};
-
 export const REMINDER = {
 	...REMINDER_HEADERS,
 	...REMINDER_LINES,

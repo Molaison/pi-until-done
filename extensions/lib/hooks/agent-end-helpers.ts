@@ -2,7 +2,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { CONTINUATION_CUSTOM_TYPE, RESPONSE_SNIPPET_CHARS } from "../constants";
+import { RESPONSE_SNIPPET_CHARS } from "../constants";
 import { continuationMessage } from "../continuation";
 import { persist, type Store } from "../store";
 import { CLEAN_END, NOTIFY } from "../strings";
@@ -90,15 +90,6 @@ export const queueContinuation = (
 		s.phase,
 		s.verifyCommand,
 	).slice(0, RESPONSE_SNIPPET_CHARS);
-	pi.sendMessage<{ goal: string; turn: number }>(
-		{
-			customType: CONTINUATION_CUSTOM_TYPE,
-			content: text,
-			display: true,
-			details: { goal: s.goal, turn: s.turnsUsed + 1 },
-		},
-		{ triggerTurn: false },
-	);
 	pi.sendUserMessage(text, { deliverAs: "followUp" });
 	refreshStatus(store, ctx);
 	refreshWidget(store, ctx);

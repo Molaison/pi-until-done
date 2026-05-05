@@ -213,7 +213,7 @@ the loop pauses and waits for the user.
 | `/until-done pause` | Halt continuation, keep state |
 | `/until-done resume` | Resume + reset budget |
 | `/until-done cancel` | Clear the goal (only way to change North Star) |
-| `/until-done budget <n>` | Change turn budget (1..200) |
+| `/until-done budget <n>` | Change turn budget (1..20000) |
 
 You don't have to surface those — the extension handles them. Stay
 focused on the contract.

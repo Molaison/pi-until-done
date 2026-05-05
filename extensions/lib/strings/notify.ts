@@ -12,9 +12,10 @@ const LIFECYCLE = {
 	noGoalToCancel: "No goal to cancel.",
 	nothingToResume: "Nothing to resume.",
 	nothingToPause: (status: string) => `Nothing to pause (status=${status}).`,
-	autopilotOnlySetup: "Autopilot only applies during setup.",
 	autopilotEnabled:
-		"/until-done · autopilot enabled. Pi will activate without confirmation.",
+		"/until-done · autopilot ON. Future setups will skip the contract confirmation dialog.",
+	autopilotDisabled:
+		"/until-done · autopilot OFF. Future setups will require the contract confirmation dialog.",
 };
 
 const INSPECTION = {

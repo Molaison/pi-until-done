@@ -37,6 +37,4 @@ export const REMINDER_LINES = {
 		`Budget: ${used}/${max} turns used.\n`,
 	tasksLine: (done: number, total: number, currentId: string, title: string) =>
 		`Tasks: ${done}/${total} done. Current: ${currentId} — ${title}\n`,
-	compactionAnnotation: (goal: string, used: number, max: number) =>
-		`\n[/until-done active: "${goal}" (${used}/${max}). Preserve goal context.]`,
 };

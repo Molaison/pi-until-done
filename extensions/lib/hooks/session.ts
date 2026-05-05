@@ -2,7 +2,11 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { STATUS_KEY, WIDGET_KEY } from "../constants";
+import {
+	COMPACTION_CONTEXT_CUSTOM_TYPE,
+	STATUS_KEY,
+	WIDGET_KEY,
+} from "../constants";
 import { persist, reconstructFromSession, type Store } from "../store";
 import { DIALOGS, NOTIFY } from "../strings";
 import { refreshStatus } from "../ui/status-line";
@@ -73,20 +77,18 @@ const onSessionBeforeFork = (pi: ExtensionAPI, store: Store) => {
 	});
 };
 
-const onSessionBeforeCompact = (pi: ExtensionAPI, store: Store) => {
-	pi.on("session_before_compact", async (event) => {
-		if (store.state.status !== "active") return undefined;
-		const annotation = compactionAnnotation(store.state);
-		event.customInstructions = (event.customInstructions ?? "") + annotation;
-		return undefined;
-	});
-};
-
 const onSessionCompact = (pi: ExtensionAPI, store: Store) => {
 	pi.on("session_compact", () => {
-		if (store.state.status === "active") {
-			persist(pi, store, "verdict", undefined, "post-compaction re-anchor");
-		}
+		if (store.state.status !== "active") return;
+		persist(pi, store, "verdict", undefined, "post-compaction re-anchor");
+		pi.sendMessage(
+			{
+				customType: COMPACTION_CONTEXT_CUSTOM_TYPE,
+				content: compactionAnnotation(store.state),
+				display: false,
+			},
+			{ triggerTurn: false },
+		);
 	});
 };
 
@@ -109,7 +111,6 @@ export const registerSessionHooks = (pi: ExtensionAPI, store: Store): void => {
 	onSessionStart(pi, store);
 	onSessionBeforeSwitch(pi, store);
 	onSessionBeforeFork(pi, store);
-	onSessionBeforeCompact(pi, store);
 	onSessionCompact(pi, store);
 	pi.on("session_before_tree", async () => undefined);
 	onSessionTree(pi, store);

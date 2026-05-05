@@ -5,8 +5,8 @@ import type {
 import type { Store } from "../store";
 
 export const registerInputHook = (pi: ExtensionAPI, store: Store): void => {
-	pi.on("input", (_event): InputEventResult => {
-		store.userMessagedThisTurn = true;
+	pi.on("input", (event): InputEventResult => {
+		if (event.source !== "extension") store.userMessagedThisTurn = true;
 		return { action: "continue" };
 	});
 };

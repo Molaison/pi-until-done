@@ -27,7 +27,8 @@ const handleBash = async (
 		store.state.askBefore,
 		event.input.command ?? "",
 	);
-	if (hit && ctx.hasUI) {
+	if (hit) {
+		if (!ctx.hasUI) return { block: true, reason: REFUSAL.noUiAskBefore(hit) };
 		const ok = await ctx.ui.confirm(
 			DIALOGS.askBeforeTitle,
 			DIALOGS.askBeforeMessage(hit, event.input.command),
@@ -66,6 +67,7 @@ export const registerToolHooks = (pi: ExtensionAPI, store: Store): void => {
 		if (isToolCallEventType("bash", event))
 			return handleBash(store, event, ctx);
 		if (scoreBuiltin(store, event)) return undefined;
+		if (event.toolName.startsWith("until_done_")) return undefined;
 		store.progressSignalsThisTurn += 2;
 		return undefined;
 	});

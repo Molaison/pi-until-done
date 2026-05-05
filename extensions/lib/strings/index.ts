@@ -9,7 +9,7 @@ export {
 	TOOL_PROMPT_SNIPPET,
 	WORKING_MESSAGE_PREFIX,
 } from "./help";
-export { CLEAN_END, LOOP_TICK, REMINDER } from "./loop";
+export { CLEAN_END, REMINDER } from "./loop";
 export { MISE_CLI_BLOCK } from "./mise-rule";
 export { NOTIFY } from "./notify";
 export { PI_CONFIG_PRINCIPLES } from "./principles";

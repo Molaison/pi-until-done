@@ -23,7 +23,6 @@ const onAgentStart = (pi: ExtensionAPI, store: Store) => {
 	pi.on("agent_start", (_event, ctx) => {
 		store.progressSignalsThisTurn = 0;
 		store.codeEditsThisTurn = 0;
-		store.userMessagedThisTurn = false;
 		if (store.state.status === "active" && ctx.hasUI) {
 			ctx.ui.setWorkingMessage(`${WORKING_MESSAGE_PREFIX}${store.state.goal}`);
 		}
@@ -63,12 +62,17 @@ const handleEndTransitions = async (
 const onAgentEnd = (pi: ExtensionAPI, store: Store) => {
 	pi.on("agent_end", async (_event, ctx) => {
 		if (store.state.status !== "active") {
+			store.userMessagedThisTurn = false;
 			refreshStatus(store, ctx);
 			return;
 		}
 		store.state.turnsUsed += 1;
 		store.state.lastTurnAt = Date.now();
-		await handleEndTransitions(pi, store, ctx);
+		try {
+			await handleEndTransitions(pi, store, ctx);
+		} finally {
+			store.userMessagedThisTurn = false;
+		}
 	});
 };
 

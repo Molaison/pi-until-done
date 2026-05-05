@@ -21,4 +21,7 @@ export const DIALOGS = {
 	largeBudgetTitle: "/until-done · large budget",
 	largeBudgetMessage: (n: number, threshold: number) =>
 		`Budget of ${n} turns is past the "go to lunch" zone (>${threshold}). At ~1 turn/min that's ${Math.round((n / 60) * 10) / 10}h of agent time and proportional API spend. Continue?`,
+	resumeDoneTitle: "/until-done · challenge completion?",
+	resumeDoneMessage: (g: string) =>
+		`Pi marked this goal done. Resume to challenge the completion (Pi must produce new evidence)?\n\nGoal: ${g}`,
 };

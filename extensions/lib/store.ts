@@ -13,6 +13,7 @@ export interface Store {
 	progressSignalsThisTurn: number;
 	codeEditsThisTurn: number;
 	userMessagedThisTurn: boolean;
+	autopilotEnabled: boolean;
 	lastTickAt: number;
 }
 
@@ -23,6 +24,7 @@ export const createStore = (): Store => ({
 	progressSignalsThisTurn: 0,
 	codeEditsThisTurn: 0,
 	userMessagedThisTurn: false,
+	autopilotEnabled: false,
 	lastTickAt: 0,
 });
 

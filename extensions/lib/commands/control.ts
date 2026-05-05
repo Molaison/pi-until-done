@@ -37,17 +37,36 @@ export const cmdResume = async (
 	ctx: ExtensionCommandContext,
 ): Promise<void> => {
 	const s = store.state;
-	if (s.status === "cleared" || s.status === "done" || !s.goal) {
+	if (s.status === "cleared" || !s.goal) {
 		ctx.ui.notify(NOTIFY.nothingToResume, "warning");
 		return;
 	}
-	persist(pi, store, "resume", {
-		status: "active",
-		turnsUsed: 0,
-		pausedReason: undefined,
-	});
+	const challengingDone = s.status === "done";
+	if (challengingDone && ctx.hasUI) {
+		const ok = await ctx.ui.confirm(
+			DIALOGS.resumeDoneTitle,
+			DIALOGS.resumeDoneMessage(s.goal),
+		);
+		if (!ok) return;
+	}
+	persist(
+		pi,
+		store,
+		"resume",
+		{
+			status: "active",
+			turnsUsed: 0,
+			cleanEndPrompts: 0,
+			pausedReason: undefined,
+		},
+		challengingDone ? "resumed after disputed completion" : undefined,
+	);
 	ctx.ui.notify(NOTIFY.resumed(s.goal), "info");
-	pi.sendUserMessage(`Resume work on the standing /until-done goal: ${s.goal}`);
+	pi.sendUserMessage(
+		challengingDone
+			? `User has disputed the previous /until-done_complete. Resume work on goal: ${s.goal}. New evidence is required before re-completion.`
+			: `Resume work on the standing /until-done goal: ${s.goal}`,
+	);
 	refreshStatus(store, ctx);
 	refreshWidget(store, ctx);
 };
@@ -105,15 +124,13 @@ export const cmdBudget = async (
 };
 
 export const cmdAutopilot = async (
-	pi: ExtensionAPI,
+	_pi: ExtensionAPI,
 	store: Store,
 	ctx: ExtensionCommandContext,
 ): Promise<void> => {
-	if (store.state.status !== "setup") {
-		ctx.ui.notify(NOTIFY.autopilotOnlySetup, "warning");
-		return;
-	}
-	store.state.confirmedByUser = true;
-	persist(pi, store, "confirm", { confirmedByUser: true }, "autopilot");
-	ctx.ui.notify(NOTIFY.autopilotEnabled, "warning");
+	store.autopilotEnabled = !store.autopilotEnabled;
+	ctx.ui.notify(
+		store.autopilotEnabled ? NOTIFY.autopilotEnabled : NOTIFY.autopilotDisabled,
+		"warning",
+	);
 };

@@ -53,7 +53,7 @@ export const runCiOnStop = async (
 ): Promise<CiOutcome> => {
 	if (store.codeEditsThisTurn === 0)
 		return { ranAnything: false, failed: false };
-	const summary = await runCi(ctx.cwd);
+	const summary = await runCi(ctx.cwd, ctx.signal);
 	if (summary.results.length === 0)
 		return { ranAnything: false, failed: false };
 	notifyHeadline(ctx, renderHeadline(summary), !summary.hasFailure);

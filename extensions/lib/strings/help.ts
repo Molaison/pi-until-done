@@ -1,17 +1,19 @@
+import { HARD_BUDGET_CEILING } from "../constants";
+
 export const HELP_TEXT = [
 	"/until-done <intent>          — start setup for a new goal",
 	"/until-done status            — show current state",
 	"/until-done pause             — pause autonomous continuation",
 	"/until-done resume            — resume after pause/block (resets budget)",
 	"/until-done cancel            — clear the active goal (only way to change North Star)",
-	"/until-done budget <n>        — set turn budget (1..200)",
+	`/until-done budget <n>        — set turn budget (1..${HARD_BUDGET_CEILING})`,
 	"/until-done detail            — open full contract overlay",
 	"/until-done tasks             — print the live YAML task list",
 	"/until-done plan              — open .until-done/tasks.yaml location",
 	"/until-done northstar         — print the locked goal contract",
 	"/until-done replan-log        — show every replan and its reason",
 	"/until-done ask <question>    — side question (does not preempt the loop)",
-	"/until-done autopilot         — skip user-confirm, trust Pi (use with care)",
+	"/until-done autopilot         — toggle skipping the contract dialog",
 	"/until-done help              — this message",
 ].join("\n");
 

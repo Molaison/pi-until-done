@@ -47,11 +47,29 @@ const initSetupState = (
 	);
 };
 
+const grantContractApproval = (
+	pi: ExtensionAPI,
+	store: Store,
+	ctx: ExtensionCommandContext,
+	note: string,
+): void => {
+	store.state.confirmedByUser = true;
+	persist(pi, store, "confirm", { confirmedByUser: true }, note);
+	ctx.ui.notify(NOTIFY.contractApproved, "info");
+	pi.sendUserMessage("Approved. Call `until_done_set` now and begin work.");
+};
+
 const awaitContractConfirmation = async (
 	pi: ExtensionAPI,
 	store: Store,
 	ctx: ExtensionCommandContext,
 ): Promise<void> => {
+	if (store.autopilotEnabled) {
+		grantContractApproval(pi, store, ctx, "autopilot");
+		refreshStatus(store, ctx);
+		refreshWidget(store, ctx, true);
+		return;
+	}
 	if (!ctx.hasUI) return;
 	await ctx.waitForIdle();
 	const confirmed = await ctx.ui.confirm(
@@ -60,16 +78,7 @@ const awaitContractConfirmation = async (
 		{ timeout: SETUP_CONFIRM_TIMEOUT_MS },
 	);
 	if (confirmed) {
-		store.state.confirmedByUser = true;
-		persist(
-			pi,
-			store,
-			"confirm",
-			{ confirmedByUser: true },
-			"user approved contract",
-		);
-		ctx.ui.notify(NOTIFY.contractApproved, "info");
-		pi.sendUserMessage("Approved. Call `until_done_set` now and begin work.");
+		grantContractApproval(pi, store, ctx, "user approved contract");
 	} else {
 		persist(pi, store, "cancel", initialState(), "user rejected contract");
 		ctx.ui.notify(NOTIFY.contractRejected, "info");

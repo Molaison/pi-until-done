@@ -39,6 +39,21 @@ export const subcommands = [
 	"autopilot",
 ] as const;
 
+const ZERO_ARG_SUBCOMMANDS = new Set([
+	"status",
+	"pause",
+	"resume",
+	"cancel",
+	"detail",
+	"tasks",
+	"plan",
+	"northstar",
+	"replan-log",
+	"autopilot",
+]);
+
+const isPositiveInteger = (s: string): boolean => /^\d+$/.test(s);
+
 const dispatch = async (
 	pi: ExtensionAPI,
 	store: Store,
@@ -47,19 +62,25 @@ const dispatch = async (
 	rest: string[],
 	args: string,
 ): Promise<void> => {
-	if (!args || head === "help") return cmdHelp(ctx);
-	if (head === "status") return cmdStatus(store, ctx);
-	if (head === "pause") return cmdPause(pi, store, ctx);
-	if (head === "resume") return cmdResume(pi, store, ctx);
-	if (head === "cancel") return cmdCancel(pi, store, ctx);
-	if (head === "budget") return cmdBudget(pi, store, ctx, rest.join(" "));
-	if (head === "detail") return cmdDetail(store, ctx);
-	if (head === "tasks") return cmdTasks(store, ctx);
-	if (head === "plan") return cmdPlanPath(ctx);
-	if (head === "northstar") return cmdNorthStar(store, ctx);
-	if (head === "replan-log") return cmdReplanLog(store, ctx);
-	if (head === "ask") return cmdAsk(pi, store, ctx, rest.join(" "));
-	if (head === "autopilot") return cmdAutopilot(pi, store, ctx);
+	if (!args || (head === "help" && rest.length === 0)) return cmdHelp(ctx);
+	if (ZERO_ARG_SUBCOMMANDS.has(head) && rest.length === 0) {
+		if (head === "status") return cmdStatus(store, ctx);
+		if (head === "pause") return cmdPause(pi, store, ctx);
+		if (head === "resume") return cmdResume(pi, store, ctx);
+		if (head === "cancel") return cmdCancel(pi, store, ctx);
+		if (head === "detail") return cmdDetail(store, ctx);
+		if (head === "tasks") return cmdTasks(store, ctx);
+		if (head === "plan") return cmdPlanPath(ctx);
+		if (head === "northstar") return cmdNorthStar(store, ctx);
+		if (head === "replan-log") return cmdReplanLog(store, ctx);
+		if (head === "autopilot") return cmdAutopilot(pi, store, ctx);
+	}
+	if (head === "budget" && rest.length === 1 && isPositiveInteger(rest[0])) {
+		return cmdBudget(pi, store, ctx, rest[0]);
+	}
+	if (head === "ask" && rest.length >= 1) {
+		return cmdAsk(pi, store, ctx, rest.join(" "));
+	}
 	return cmdSetup(pi, store, ctx, args);
 };
 

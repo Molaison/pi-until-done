@@ -61,7 +61,7 @@ const setPatch = (
 
 const executeSet = async (pi: ExtensionAPI, store: Store, params: SetInput) => {
 	const s = store.state;
-	if (s.status === "active" || s.status === "paused") {
+	if (s.status !== "setup") {
 		return refused(REFUSAL.goalExists(s.status), "goal_exists");
 	}
 	if (!s.confirmedByUser) return refused(REFUSAL.notConfirmed, "not_confirmed");

@@ -19,7 +19,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerCommand } from "./lib/commands/router";
 import { registerFlag } from "./lib/flag";
 import { registerHooks } from "./lib/hooks";
-import { registerRenderer } from "./lib/renderer";
 import { registerShortcut } from "./lib/shortcut";
 import { createStore } from "./lib/store";
 import { registerTools } from "./lib/tools";
@@ -28,9 +27,7 @@ export default function untilDoneExtension(pi: ExtensionAPI): void {
 	const store = createStore();
 	registerFlag(pi);
 	registerTools(pi, store);
-	registerRenderer(pi);
 	registerHooks(pi, store);
 	registerShortcut(pi, store);
 	registerCommand(pi, store);
-	pi.appendEntry("until-done.loaded", { at: Date.now() });
 }
