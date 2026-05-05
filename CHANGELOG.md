@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-04
+
+### Fixed
+- **CI runner: kill the whole process group on timeout / signal abort.**
+  On Linux and Windows, `Bun.spawn(["sh", "-c", "sleep 5"])` left the
+  child `sleep` orphaned holding the stdout/stderr pipes open, so
+  `proc.exited` blocked for the full sleep duration even after
+  `proc.kill()` terminated the shell. Tests that asserted `< 2000ms`
+  observed `~5000ms` and v0.2.0's CI matrix went red on
+  ubuntu-latest / windows-latest. Fix: spawn with `detached: true` on
+  Unix so the spawn is its own process-group leader, then SIGKILL the
+  negative PID on timeout/abort to take the whole tree. v0.2.0 never
+  reached npm — the publish workflow correctly held at the CI gate.
+  v0.2.1 ships the same feature set as v0.2.0 plus this fix.
+
 ## [0.2.0] — 2026-05-04
 
 ### Added
@@ -212,7 +227,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests in `tests/`.
 - LICENSE (MIT), SECURITY.md.
 
-[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.1
 [0.2.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.0
 [0.1.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.1
 [0.1.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.0
