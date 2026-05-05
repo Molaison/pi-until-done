@@ -20,11 +20,19 @@ import { registerCommand } from "./lib/commands/router";
 import { registerFlag } from "./lib/flag";
 import { registerHooks } from "./lib/hooks";
 import { registerShortcut } from "./lib/shortcut";
-import { createStore } from "./lib/store";
+import { createStore, type Store } from "./lib/store";
 import { registerTools } from "./lib/tools";
 
-export default function untilDoneExtension(pi: ExtensionAPI): void {
+export interface UntilDoneOptions {
+	onStore?: (store: Store) => void;
+}
+
+export default function untilDoneExtension(
+	pi: ExtensionAPI,
+	options?: UntilDoneOptions,
+): void {
 	const store = createStore();
+	options?.onStore?.(store);
 	registerFlag(pi);
 	registerTools(pi, store);
 	registerHooks(pi, store);
