@@ -23,20 +23,49 @@ const truncate = (s: string): string =>
 		? s
 		: OUTPUT_TRUNCATION_MARKER + s.slice(-OUTPUT_TRUNCATION_CHARS);
 
+const isWin = process.platform === "win32";
+
 const startSpawn = (argv: string[], cwd: string): SpawnLike =>
-	Bun.spawn(argv, { cwd, stdout: "pipe", stderr: "pipe" });
+	Bun.spawn(argv, {
+		cwd,
+		stdout: "pipe",
+		stderr: "pipe",
+		// On Unix, put the spawn in a new process group so we can SIGKILL
+		// the whole tree on timeout/abort — without this, killing only the
+		// shell wrapper leaves orphaned descendants holding the stdout/stderr
+		// pipes open and `proc.exited` waits for them to finish naturally.
+		// Windows has no process groups; rely on the per-process kill.
+		...(isWin ? {} : { detached: true }),
+	});
+
+const killTree = (proc: SpawnLike): void => {
+	if (!isWin) {
+		try {
+			// Negative pid → entire process group (set up by detached: true)
+			process.kill(-proc.pid, "SIGKILL");
+			return;
+		} catch {
+			// Group may have already exited; fall through to single-proc kill
+		}
+	}
+	try {
+		proc.kill("SIGKILL");
+	} catch {
+		// best-effort
+	}
+};
 
 const armTimeout = (proc: SpawnLike, timeoutMs: number): NodeJS.Timeout =>
-	setTimeout(() => proc.kill(), timeoutMs);
+	setTimeout(() => killTree(proc), timeoutMs);
 
 const armAbort = (
 	proc: SpawnLike,
 	signal: AbortSignal | undefined,
 ): (() => void) => {
 	if (!signal) return () => {};
-	const onAbort = () => proc.kill();
+	const onAbort = () => killTree(proc);
 	if (signal.aborted) {
-		proc.kill();
+		killTree(proc);
 		return () => {};
 	}
 	signal.addEventListener("abort", onAbort, { once: true });
