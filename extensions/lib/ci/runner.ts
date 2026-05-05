@@ -5,15 +5,31 @@ type SpawnLike = ReturnType<typeof Bun.spawn>;
 
 const decoder = new TextDecoder();
 
-const drainStream = async (stream: unknown): Promise<string> => {
+const isWin = process.platform === "win32";
+
+interface ProcState {
+	proc: SpawnLike;
+	readers: ReadableStreamDefaultReader<Uint8Array>[];
+	killed: boolean;
+}
+
+const drainCaptured = async (
+	stream: unknown,
+	state: ProcState,
+): Promise<string> => {
 	if (!stream || typeof stream !== "object" || !("getReader" in stream))
 		return "";
 	const reader = (stream as ReadableStream<Uint8Array>).getReader();
+	state.readers.push(reader);
 	let out = "";
-	while (true) {
-		const { value, done } = await reader.read();
-		if (done) break;
-		out += decoder.decode(value, { stream: true });
+	try {
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			out += decoder.decode(value, { stream: true });
+		}
+	} catch {
+		// reader was cancelled by killTree — return what we have so far
 	}
 	return out + decoder.decode();
 };
@@ -23,49 +39,59 @@ const truncate = (s: string): string =>
 		? s
 		: OUTPUT_TRUNCATION_MARKER + s.slice(-OUTPUT_TRUNCATION_CHARS);
 
-const isWin = process.platform === "win32";
-
 const startSpawn = (argv: string[], cwd: string): SpawnLike =>
 	Bun.spawn(argv, {
 		cwd,
 		stdout: "pipe",
 		stderr: "pipe",
-		// On Unix, put the spawn in a new process group so we can SIGKILL
-		// the whole tree on timeout/abort — without this, killing only the
-		// shell wrapper leaves orphaned descendants holding the stdout/stderr
-		// pipes open and `proc.exited` waits for them to finish naturally.
-		// Windows has no process groups; rely on the per-process kill.
+		// On Unix, put the spawn in its own process group so SIGKILL on the
+		// negative pid takes the whole descendant tree. Without this, killing
+		// only the shell wrapper leaves orphaned children holding the
+		// stdout/stderr pipes open and `proc.exited` blocks until the orphan
+		// finishes naturally (e.g. a 5s `sleep 5` waits the whole 5s).
+		// Windows has no process groups — we cancel the readers instead.
 		...(isWin ? {} : { detached: true }),
 	});
 
-const killTree = (proc: SpawnLike): void => {
+const killTree = (state: ProcState): void => {
+	state.killed = true;
+	const { proc } = state;
 	if (!isWin) {
 		try {
-			// Negative pid → entire process group (set up by detached: true)
 			process.kill(-proc.pid, "SIGKILL");
-			return;
 		} catch {
-			// Group may have already exited; fall through to single-proc kill
+			try {
+				proc.kill("SIGKILL");
+			} catch {
+				/* best-effort */
+			}
+		}
+	} else {
+		try {
+			proc.kill("SIGKILL");
+		} catch {
+			/* best-effort */
 		}
 	}
-	try {
-		proc.kill("SIGKILL");
-	} catch {
-		// best-effort
+	// Cancel any captured pipe readers so `drainCaptured` returns immediately
+	// even when an orphan still holds the writer side. This is the only
+	// portable way to force-resolve the drain on Windows (no process groups).
+	for (const reader of state.readers) {
+		reader.cancel().catch(() => {});
 	}
 };
 
-const armTimeout = (proc: SpawnLike, timeoutMs: number): NodeJS.Timeout =>
-	setTimeout(() => killTree(proc), timeoutMs);
+const armTimeout = (state: ProcState, timeoutMs: number): NodeJS.Timeout =>
+	setTimeout(() => killTree(state), timeoutMs);
 
 const armAbort = (
-	proc: SpawnLike,
+	state: ProcState,
 	signal: AbortSignal | undefined,
 ): (() => void) => {
 	if (!signal) return () => {};
-	const onAbort = () => killTree(proc);
+	const onAbort = () => killTree(state);
 	if (signal.aborted) {
-		killTree(proc);
+		killTree(state);
 		return () => {};
 	}
 	signal.addEventListener("abort", onAbort, { once: true });
@@ -73,12 +99,12 @@ const armAbort = (
 };
 
 const collect = async (
-	proc: SpawnLike,
+	state: ProcState,
 ): Promise<{ exit: number; output: string }> => {
 	const [stdout, stderr, exit] = await Promise.all([
-		drainStream(proc.stdout),
-		drainStream(proc.stderr),
-		proc.exited,
+		drainCaptured(state.proc.stdout, state),
+		drainCaptured(state.proc.stderr, state),
+		state.proc.exited,
 	]);
 	return { exit, output: `${stdout}${stderr}` };
 };
@@ -91,10 +117,11 @@ export const runOne = async (
 	const started = Date.now();
 	const command = check.argv.join(" ");
 	const proc = startSpawn(check.argv, cwd);
-	const timer = armTimeout(proc, check.timeoutMs);
-	const detachAbort = armAbort(proc, signal);
+	const state: ProcState = { proc, readers: [], killed: false };
+	const timer = armTimeout(state, check.timeoutMs);
+	const detachAbort = armAbort(state, signal);
 	try {
-		const { exit, output } = await collect(proc);
+		const { exit, output } = await collect(state);
 		clearTimeout(timer);
 		detachAbort();
 		return {

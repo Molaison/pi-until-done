@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-04
+
+### Fixed
+- **CI runner Windows support: cancel pipe readers on kill.** The
+  v0.2.1 fix used `detached: true` + `process.kill(-pid, SIGKILL)` to
+  take whole descendant trees on Unix, which fixed Linux. Windows has
+  no process groups, so `sh -c 'sleep 5'` orphaned descendants kept
+  the stdout/stderr pipes open even after the shell died, and
+  `drainStream` blocked on the pipe read until the orphan exited.
+  Refactored to capture each pipe's `ReadableStreamDefaultReader` in a
+  `ProcState` so that `killTree` can `reader.cancel()` them after
+  killing the process — the drain returns immediately on every
+  platform regardless of orphan lifetime. v0.2.1 never reached npm
+  (publish workflow held at the CI gate again on Windows). v0.2.2
+  ships the same feature set as v0.2.0/v0.2.1 plus the fully
+  cross-platform runner kill semantics.
+
 ## [0.2.1] — 2026-05-04
 
 ### Fixed
@@ -227,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests in `tests/`.
 - LICENSE (MIT), SECURITY.md.
 
-[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/srinitude/pi-until-done/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.2
 [0.2.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.1
 [0.2.0]: https://github.com/srinitude/pi-until-done/releases/tag/v0.2.0
 [0.1.1]: https://github.com/srinitude/pi-until-done/releases/tag/v0.1.1
