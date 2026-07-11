@@ -1,6 +1,6 @@
 {
   "name": "pi-until-done",
-  "version": "0.2.2",
+  "version": "0.2.3-molaison.1",
   "description": "Pi extension that brings Hermes Agent's /goal (Ralph loop with judge) to Pi as /until-done. Pi self-judges every turn, runs verifyCommand to confirm done, and routes all CI/CD through mise across 18 language profiles.",
   "license": "MIT",
   "author": {
@@ -8,19 +8,18 @@
     "email": "kiren@fantasymetals.com",
     "url": "https://github.com/srinitude"
   },
-  "homepage": "https://github.com/srinitude/pi-until-done#readme",
+  "homepage": "https://github.com/Molaison/pi-until-done#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/srinitude/pi-until-done.git"
+    "url": "git+https://github.com/Molaison/pi-until-done.git"
   },
   "bugs": {
-    "url": "https://github.com/srinitude/pi-until-done/issues"
+    "url": "https://github.com/Molaison/pi-until-done/issues"
   },
   "keywords": [
     "pi-package",
     "pi-extension",
     "pi-skill",
-    "pi-prompt",
     "pi",
     "pi.dev",
     "goal",
@@ -39,7 +38,6 @@
   "files": [
     "extensions",
     "skills",
-    "prompts",
     "assets",
     "AGENTS.md",
     "CHANGELOG.md",
@@ -57,25 +55,22 @@
     "skills": [
       "./skills"
     ],
-    "prompts": [
-      "./prompts"
-    ],
-    "image": "https://raw.githubusercontent.com/srinitude/pi-until-done/main/assets/preview.png"
+    "image": "https://raw.githubusercontent.com/Molaison/pi-until-done/main/assets/preview.png"
   },
   "engines": {
     "bun": ">=1.2.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-ai": "*",
-    "@mariozechner/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "devDependencies": {
     "@biomejs/biome": "*",
-    "@mariozechner/pi-ai": "*",
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "@types/bun": "*",
     "opensrc": "^0.7.2",
     "typebox": "*",

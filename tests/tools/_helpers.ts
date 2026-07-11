@@ -1,4 +1,4 @@
-import { fauxAssistantMessage, fauxToolCall } from "@mariozechner/pi-ai";
+import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { makeNorthStar } from "../helpers/factories";
 import type { TestRuntime } from "../helpers/runtime-harness";
 

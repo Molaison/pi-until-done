@@ -1,7 +1,7 @@
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { STATE_CUSTOM_TYPE } from "./constants";
 import { initialState, initialStats } from "./initial-state";
 import type { GoalState, StateEvent, StateEventKind, Stats } from "./types";

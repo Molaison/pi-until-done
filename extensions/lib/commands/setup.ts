@@ -1,7 +1,7 @@
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { SETUP_CONFIRM_TIMEOUT_MS } from "../constants";
 import { initialState } from "../initial-state";
 import { persist, type Store } from "../store";

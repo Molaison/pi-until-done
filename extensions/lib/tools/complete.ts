@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import type { CompleteParams } from "../schemas/lifecycle";
 import { persist, type Store } from "../store";
@@ -72,6 +73,23 @@ const completeWithApproval = (
 	});
 };
 
+const reportJudgeUsage = (
+	pi: ExtensionAPI,
+	sessionId: string,
+	decision: JudgeDecision,
+): void => {
+	if (!decision.usage) return;
+	if (decision.usageTimestamp === undefined) throw new Error("Until Done: judge usage has no response timestamp");
+	pi.events.emit("nano-context:usage", {
+		version: 1,
+		id: randomUUID(),
+		source: "until-done/judge",
+		sessionId,
+		timestamp: decision.usageTimestamp,
+		usage: decision.usage,
+	});
+};
+
 const decideJudge = async (
 	ctx: ExtensionContext,
 	store: Store,
@@ -106,7 +124,9 @@ export const executeComplete = async (
 	const s = store.state;
 	if (s.status !== "active")
 		return failed(REFUSAL.noActiveGoal(s.status), "no_active_goal");
+	const sessionId = ctx.sessionManager.getSessionId();
 	const decision = await decideJudge(ctx, store, params);
+	reportJudgeUsage(pi, sessionId, decision);
 	if (decision.verdict === "continue") {
 		return refuseCompletion(pi, store, decision, params);
 	}

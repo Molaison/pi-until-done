@@ -1,12 +1,23 @@
-import { complete, type Model } from "@mariozechner/pi-ai";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { Model } from "@earendil-works/pi-ai";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { loadCompleteSimple } from "../pi-compat";
 import type { GoalState, JudgeModel } from "../types";
 
 export type JudgeVerdict = "done" | "continue" | "parse_error" | "unavailable";
 
+export interface JudgeUsage {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	cost: number;
+}
+
 export interface JudgeDecision {
 	verdict: JudgeVerdict;
 	reason: string;
+	usage?: JudgeUsage;
+	usageTimestamp?: number;
 }
 
 const buildSystemPrompt = (): string =>
@@ -112,7 +123,8 @@ const runJudge = async (
 		};
 	}
 	try {
-		const result = await complete(
+		const completeSimple = await loadCompleteSimple();
+		const result = await completeSimple(
 			model,
 			{
 				systemPrompt: buildSystemPrompt(),
@@ -126,9 +138,27 @@ const runJudge = async (
 					},
 				],
 			},
-			{ apiKey: auth.apiKey, headers: auth.headers, signal: ctx.signal },
+			{
+				apiKey: auth.apiKey,
+				...(auth.headers !== undefined ? { headers: auth.headers } : {}),
+				signal: ctx.signal,
+			},
 		);
-		return interpretJudge(extractText(result.content));
+		const decision = interpretJudge(extractText(result.content));
+		const usage = result.usage;
+		return usage
+			? {
+				...decision,
+				usage: {
+					input: usage.input,
+					output: usage.output,
+					cacheRead: usage.cacheRead,
+					cacheWrite: usage.cacheWrite,
+					cost: usage.cost.total,
+				},
+				usageTimestamp: result.timestamp,
+			}
+			: decision;
 	} catch (e) {
 		return {
 			verdict: "unavailable",

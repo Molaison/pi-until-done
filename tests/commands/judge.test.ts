@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { fauxAssistantMessage, fauxToolCall } from "@mariozechner/pi-ai";
+import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { makeSetParams } from "../helpers/factories";
 import {
 	createTestRuntime,

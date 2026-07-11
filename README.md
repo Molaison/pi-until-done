@@ -2,7 +2,7 @@
 
 ![pi-until-done preview](./assets/preview.png)
 
-A Pi extension that brings [Hermes Agent's `/goal`](https://hermes-agent.nousresearch.com/docs/user-guide/features/goals)
+Molaison's fork of a Pi extension that brings [Hermes Agent's `/goal`](https://hermes-agent.nousresearch.com/docs/user-guide/features/goals)
 ("the Ralph loop with a judge") to Pi as `/until-done`. **Every
 `until_done_complete` is gated by a cross-model LLM judge by default** —
 the standard fix for Ralph-loop oscillation, where the executor talks
@@ -32,22 +32,26 @@ extension.
 > self-judge. No system-prompt replacement, no side-database, no hidden
 > state, no silent path past the judge.
 
+### Nano Context accounting
+
+When [Molaison's Nano Context fork](https://github.com/Molaison/nano-context) is loaded, every completed cross-model or same-model judge response with provider usage emits a `nano-context:usage` event. Nano Context persists and adds its input, output, cache-read, cache-write, and cost values to its external/cumulative totals. Calls that throw before returning a provider response emit nothing.
+
 ## Install
 
-The package is on npm: <https://www.npmjs.com/package/pi-until-done>.
+The upstream package is on npm; install this fork from GitHub to include Nano Context judge accounting.
 
 ### Through Pi (recommended)
 
 ```bash
-pi install npm:pi-until-done                              # from npm (recommended)
-pi install github:srinitude/pi-until-done                 # from git
+pi install git:github.com/Molaison/pi-until-done          # this fork
+pi install npm:pi-until-done                              # upstream, without this fork's accounting
 pi install /path/to/pi-until-done                         # local install
 pi -e /path/to/pi-until-done/extensions/until-done.ts     # try without installing
 ```
 
-The package manifest declares all four pi.dev resource types
-(`pi.extensions`, `pi.skills`, `pi.prompts`, `pi.image`), so a single
-`pi install` wires up everything.
+The package manifest declares the extension, skill, and preview image
+(`pi.extensions`, `pi.skills`, `pi.image`), so a single `pi install`
+wires up everything.
 
 ### Directly via your package manager
 
@@ -582,7 +586,7 @@ pi-mono with no manual ceremony when the upgrade is clean — and
 
 1. **`.github/workflows/upstream-watch.yml`** (daily 06:13 UTC + manual
    dispatch) — checks npm for new releases of
-   `@mariozechner/pi-coding-agent` and `@mariozechner/pi-ai`, refreshes
+   `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`, refreshes
    `bun.lock` if a bump is available, runs `mise run ci` against the
    bumped versions in-workflow, and opens / updates a PR
    (`upstream/pi-bump`) with `coderabbitai` requested as reviewer and
@@ -627,9 +631,9 @@ the PR-triggered CI matrix fails, the merge gate refuses to merge —
 fix the extension code drift before merging rather than pinning back.
 
 Tests live in [`tests/`](tests/) and run against a **real Pi runtime**
-(via `createAgentSessionRuntime` from `@mariozechner/pi-coding-agent`)
+(via `createAgentSessionRuntime` from `@earendil-works/pi-coding-agent`)
 with deterministic LLM responses supplied by `registerFauxProvider`
-from `@mariozechner/pi-ai`. No hand-rolled `ExtensionAPI` mocks. Real
+from `@earendil-works/pi-ai/compat`. No hand-rolled `ExtensionAPI` mocks. Real
 fs (temp dirs), real subprocesses (`Bun.spawn`), real `AbortSignal`
 abort propagation. The harness lives in
 [`tests/helpers/`](tests/helpers/).

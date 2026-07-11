@@ -5,14 +5,14 @@ import {
 	fauxAssistantMessage,
 	type FauxResponseStep,
 	registerFauxProvider,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai/compat";
 import {
 	AuthStorage,
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	type ExtensionAPI,
 	SessionManager,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import untilDoneExtension from "../../extensions/until-done";
 import type { Store } from "../../extensions/lib/store";
 import {

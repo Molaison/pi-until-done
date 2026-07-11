@@ -1,13 +1,14 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { registerFauxProvider } from "@mariozechner/pi-ai";
+import type { registerFauxProvider } from "@earendil-works/pi-ai/compat";
 import {
 	type AuthStorage,
 	type CreateAgentSessionRuntimeFactory,
 	createAgentSessionFromServices,
 	createAgentSessionServices,
 	type ExtensionAPI,
-} from "@mariozechner/pi-coding-agent";
+	SettingsManager,
+} from "@earendil-works/pi-coding-agent";
 
 type Faux = ReturnType<typeof registerFauxProvider>;
 
@@ -69,6 +70,9 @@ export const buildRuntimeFactory = (
 			...runtimeOptions,
 			cwd: rcwd,
 			agentDir: rcwd,
+			settingsManager: SettingsManager.inMemory({
+				compaction: { enabled: true, keepRecentTokens: 1 },
+			}),
 		});
 		return {
 			...(await createAgentSessionFromServices({
